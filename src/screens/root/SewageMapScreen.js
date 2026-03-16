@@ -47,8 +47,8 @@ const SewageMapScreen = ({ navigation }) => {
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
   const { buildingCoords, mapType } = useSelector((state) => state.map);
 
-  const [wmslinks, setWmslink] = useState();
-  ***REMOVED***,
+  const [wmslinks, setWmslink] = useState("***REMOVED***");
+  // ***REMOVED***,
   const [showWmsLink, setShowWmsLink] = useState(false);
   const [showWmsDialog, setShowWmsDialog] = useState(false);
 
