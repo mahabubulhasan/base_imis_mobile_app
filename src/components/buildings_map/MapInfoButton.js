@@ -45,8 +45,7 @@ export default React.memo(MapInfoButton);
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    margin: SPACINGS.sm,
-    left: 0,
-    bottom: 0,
+    left: 15,
+    bottom: 30,
   },
 });

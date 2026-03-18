@@ -8,7 +8,13 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { Marker, Polygon, WMSTile } from "react-native-maps";
 import IonIcon from "react-native-vector-icons/Ionicons";
 import { getDistance } from "geolib";
@@ -48,6 +54,10 @@ const BuildingMapScreen = () => {
   const [isInfoModalVisible, setisInfoModalVisible] = useState(false);
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
   const [buildingCoordsState, setBuildingCoordsState] = useState([]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [savedCoords, setSavedCoords] = useState([]);
+  const [hasEverSaved, setHasEverSaved] = useState(false);
 
   const [showWmsLink, setShowWmsLink] = useState(true);
   const [roadWms, setRoadWms] = useState(true);
@@ -89,6 +99,7 @@ const BuildingMapScreen = () => {
   useEffect(() => {
     if (!!buildingCoords) {
       setBuildingCoordsState(buildingCoords);
+      setSavedCoords(buildingCoords);
     }
   }, [buildingCoords]);
 
@@ -265,6 +276,47 @@ const BuildingMapScreen = () => {
 
   const getLabel = (key) => contentsLabel?.[key] || key;
 
+  const haveUnsavedChanges = useMemo(
+    () => JSON.stringify(savedCoords) !== JSON.stringify(buildingCoordsState),
+    [savedCoords, buildingCoordsState]
+  );
+
+  const onPressEditToggle = () => {
+    if (!isEditing) {
+      setIsEditing(true);
+      setBuildingCoordsState(savedCoords || []);
+    } else if (haveUnsavedChanges) {
+      Alert.alert(
+        getLabel("DISCARD_CHANGES"),
+        getLabel(
+          "Are you sure you want to discard your unsaved polygon changes?"
+        ),
+        [
+          {
+            text: getLabel("YES"),
+            onPress: () => {
+              setBuildingCoordsState(savedCoords || []);
+              setIsEditing(false);
+            },
+          },
+          {
+            text: getLabel("CANCEL"),
+            style: "cancel",
+          },
+        ]
+      );
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDataSaved = () => {
+    setSavedCoords(buildingCoordsState);
+    setHasEverSaved(true);
+    setIsEditing(false);
+    closeVisibleModals();
+  };
+
   return (
     <View style={styles.container}>
       <Header
@@ -275,20 +327,24 @@ const BuildingMapScreen = () => {
       {locationEnabled && permissionStatus && location ? (
         <>
           <MapComponent
-            handleMarkerPress={handlePressOnMap}
+            handleMarkerPress={isEditing ? handlePressOnMap : undefined}
             markerdrag={!dragging}
           >
             {buildingCoordsState.map((marker, index) => (
               <Marker
                 zIndex={marker.zIndex}
-                draggable
+                draggable={isEditing}
                 poiClickEnabled={false}
-                onDragStart={handleMarkerDragStart}
-                onDragEnd={(event) => {
-                  setDragging(false);
-                  onDragEnd(index, event);
-                }}
-                onPress={() => handlePressOnMarker(index)}
+                onDragStart={isEditing ? handleMarkerDragStart : undefined}
+                onDragEnd={
+                  isEditing
+                    ? (event) => {
+                        setDragging(false);
+                        onDragEnd(index, event);
+                      }
+                    : undefined
+                }
+                onPress={isEditing ? () => handlePressOnMarker(index) : undefined}
                 coordinate={{
                   latitude: marker.latitude,
                   longitude: marker.longitude,
@@ -405,6 +461,18 @@ const BuildingMapScreen = () => {
               setShowWmsDialog(true);
             }}
           />
+          <FAB
+            animated={false}
+            style={styles.editFab}
+            icon={() => (
+              <IonIcon
+                name={isEditing ? "close" : "add"}
+                size={24}
+                color="white"
+              />
+            )}
+            onPress={onPressEditToggle}
+          />
           <WmsView
             visible={showWmsDialog}
             mode="Building"
@@ -426,7 +494,7 @@ const BuildingMapScreen = () => {
           <SaveDataModal
             visible={isSaveModalVisible}
             onClose={setIsSaveModalVisible}
-            onDataSaved={closeVisibleModals}
+            onDataSaved={handleDataSaved}
           />
         </>
       ) : (
@@ -455,8 +523,14 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
+    bottom: 190,
+    left: 15,
+    backgroundColor: COLORS.primary,
+  },
+  editFab: {
+    position: "absolute",
     bottom: 110,
-    marginLeft: 15,
+    left: 15,
     backgroundColor: COLORS.primary,
   },
 });
