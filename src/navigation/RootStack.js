@@ -25,6 +25,7 @@ import LandApplicantListScreen from "../screens/root/LandApplicantListScreen";
 import LandOwnerDetailScreen from "../screens/root/LandOwnerDetailScreen";
 import BuildingSurveyScreen from "../screens/root/BuildingSurveyScreen";
 import EmptyingSubmissionScreen from "../screens/root/EmptyingSubmissionScreen";
+import EmptyingBuildingPickerScreen from "../screens/root/EmptyingBuildingPickerScreen";
 import SewageMapScreen from "../screens/root/SewageMapScreen";
 import SewageDataScreen from "../screens/root/SewageDataScreen";
 import BuildingMapDetials from "../screens/root/BuildingMapDetails";
@@ -225,6 +226,14 @@ const RootStack = ({ navigation }) => {
           })}
           name={ROUTES.empty_submission}
           component={EmptyingSubmissionScreen}
+        />
+        <Screen
+          options={{
+            title: "Select Building",
+            headerShown: false,
+          }}
+          name={ROUTES.emptying_building_picker}
+          component={EmptyingBuildingPickerScreen}
         />
         <Screen
           options={({ route }) => ({

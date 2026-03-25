@@ -25,10 +25,11 @@ import colors, { lightTheme } from "../../core/theme/colors";
 import { EmptyingFieldsEnum } from "../../constants/enum";
 import { Header } from "../../components/headers";
 import { useSelector } from "react-redux";
+import { ROUTES } from "../../core/constants/routes";
 
 const mode = "outlined";
 
-const EmptyingSubmissionScreen = ({ route }) => {
+const EmptyingSubmissionScreen = ({ route, navigation }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const [dateOpen, setDateOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
@@ -37,6 +38,7 @@ const EmptyingSubmissionScreen = ({ route }) => {
     name: "",
     open: false,
   });
+  const [selectedBuildingName, setSelectedBuildingName] = useState("");
 
   const { item } = route.params;
 
@@ -65,6 +67,24 @@ const EmptyingSubmissionScreen = ({ route }) => {
     fetchVehicles();
     fetchUserLocation();
   }, []);
+
+  useEffect(() => {
+    const selectedBuilding = route?.params?.selectedBuilding;
+    if (!selectedBuilding) return;
+
+    const selectedBuildingId =
+      typeof selectedBuilding === "object"
+        ? selectedBuilding?.id || ""
+        : selectedBuilding;
+    const selectedBuildingDisplayName =
+      typeof selectedBuilding === "object"
+        ? selectedBuilding?.name || ""
+        : selectedBuilding;
+
+    setFieldValue("building_id", selectedBuildingId);
+    setSelectedBuildingName(selectedBuildingDisplayName);
+    navigation.setParams({ selectedBuilding: undefined });
+  }, [navigation, route?.params?.selectedBuilding, setFieldValue]);
 
   const {
     values,
@@ -100,6 +120,7 @@ const EmptyingSubmissionScreen = ({ route }) => {
     service_receiver_contact,
     latitude,
     longitude,
+    building_id,
   } = values;
 
   const option = {
@@ -144,6 +165,7 @@ const EmptyingSubmissionScreen = ({ route }) => {
   const openGallery = (setFieldValue) => {
     launchImageLibrary(option, (res) => {
       if (res.didCancel) return;
+      const fileSizeInMB = (res.assets[0].fileSize / (1024 * 1024)).toFixed(2);
 
       if (res.assets[0].type === "image/png") {
         Alert.alert(
@@ -201,6 +223,38 @@ const EmptyingSubmissionScreen = ({ route }) => {
               setFieldValue("date", date);
             }}
           />
+
+          <Card mode="contained" style={styles.mapSelectionCard}>
+            <Card.Content style={styles.mapSelectionContent}>
+              <Text variant="titleSmall">
+                {contentsLabel?.["Building Selection"] || "Building Selection"}
+              </Text>
+              <Text variant="bodyMedium">
+                {building_id
+                  ? `${contentsLabel?.["Selected BIN"] || "Selected BIN"}: ${
+                      selectedBuildingName || building_id
+                    }`
+                  : contentsLabel?.["No building selected"] ||
+                    "No building selected"}
+              </Text>
+              <Button
+                mode="contained-tonal"
+                onPress={() =>
+                  navigation.navigate(ROUTES.emptying_building_picker, {
+                    selectedBuildingId: building_id,
+                  })
+                }
+              >
+                {building_id
+                  ? contentsLabel?.["Change Building"] || "Change Building"
+                  : contentsLabel?.["Select Building"] || "Select Building"}
+              </Button>
+            </Card.Content>
+          </Card>
+          {errors.building_id && (
+            <HelperText type="error">{errors.building_id}</HelperText>
+          )}
+
           <TextInput
             label={
               contentsLabel?.[EmptyingFieldsEnum.ServiceReciverName] ||
@@ -802,6 +856,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     height: 160,
+  },
+  mapSelectionCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+  },
+  mapSelectionContent: {
+    gap: 8,
   },
 });
 

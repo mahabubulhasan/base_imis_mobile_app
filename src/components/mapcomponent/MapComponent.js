@@ -28,10 +28,10 @@ export default function MapComponent({
       region={{
         longitude: location?.longitude,
         latitude: location?.latitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
       }}
-      maxZoomLevel={30}
+      cameraZoomRange={{ minCenterCoordinateDistance: 0 }}
       poiClickEnabled={false}
       onPress={handleMarkerPress}
       onLongPress={handleMarkerPress}

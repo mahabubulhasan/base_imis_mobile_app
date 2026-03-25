@@ -36,3 +36,65 @@ export const getBuildings = async () => {
 export const getSewerCode = async () => {
   return await client.get(URLS.sewerCode);
 };
+
+const getQueryParam = (url, key) => {
+  const query = url?.split('?')?.[1] || '';
+  if (!query) return '';
+
+  const pair = query
+    .split('&')
+    .find(item => (item.split('=')[0] || '').toLowerCase() === key.toLowerCase());
+
+  if (!pair) return '';
+
+  const [, value = ''] = pair.split('=');
+  return decodeURIComponent(value);
+};
+
+export const getBuildingFeatureInfoByCoordinate = async ({
+  wmsUrl,
+  latitude,
+  longitude,
+}) => {
+  const endpoint = wmsUrl?.split('?')?.[0] || '';
+  const layer =
+    getQueryParam(wmsUrl, 'layers') ||
+    getQueryParam(wmsUrl, 'query_layers') ||
+    getQueryParam(wmsUrl, 'typename');
+  const version = getQueryParam(wmsUrl, 'version') || '1.1.1';
+
+  if (!endpoint || !layer || latitude == null || longitude == null) {
+    return [];
+  }
+
+  const pad = 0.00025;
+  const params = {
+    SERVICE: 'WMS',
+    REQUEST: 'GetFeatureInfo',
+    PROPERTYNAME: 'bin,owner_name,owner_contact,ward,tax_code',
+    VERSION: version,
+    INFO_FORMAT: 'application/json',
+    FEATURE_COUNT: 5,
+    FORMAT: 'image/png',
+    TRANSPARENT: true,
+    LAYERS: layer,
+    QUERY_LAYERS: layer,
+    STYLES: '',
+    WIDTH: 101,
+    HEIGHT: 101,
+    BBOX: `${latitude - pad},${longitude - pad},${latitude + pad},${longitude + pad}`,
+    SRS: 'EPSG:4326',
+    CRS: 'EPSG:4326',
+    X: 50,
+    Y: 50,
+    I: 50,
+    J: 50,
+  };
+
+  const response = await client.get(endpoint, {
+    baseURL: '',
+    params,
+  });
+
+  return response?.data?.features || [];
+};

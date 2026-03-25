@@ -75,3 +75,4 @@ yarn-error.log
 
 .env.dev
 .env.prod
+.vscode/settings.json
