@@ -1,6 +1,5 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
-import {useSelector} from 'react-redux';
 import {FAB, Portal} from 'react-native-paper';
 
 import {COLORS, SPACINGS} from '../../core/theme';
@@ -8,11 +7,7 @@ import {COLORS, SPACINGS} from '../../core/theme';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const MapInfoButton = ({onPress, buildingCoords}) => {
-  // const {buildingCoords} = useSelector(state => state.map);
-
-  // check if building coords has elements
   const enabled = buildingCoords.length >= 4;
-  console.log('MapInforButton', enabled, buildingCoords.length);
 
   const handleInfoPress = () => {
     onPress(true);

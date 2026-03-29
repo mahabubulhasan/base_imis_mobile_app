@@ -20,17 +20,23 @@ import IonIcon from "react-native-vector-icons/Ionicons";
 import { getDistance } from "geolib";
 
 import { COLORS } from "../../core/theme";
+import colors from "../../core/theme/colors";
 
 import {
   resetBuildingCoords,
   addBuildingCoordsData,
+  updateBuildingData,
+  upsertBuildingData,
 } from "../../store/slices/map.slice";
 import { getCurrentLocation } from "../../helpers/location";
 import { askStoragePermission } from "../../helpers/permissions";
+import RNFB from "react-native-blob-util";
+import { buildBuildingKml } from "../../helpers/kml/buildingKml";
 
 import MapInfoButton from "../../components/buildings_map/MapInfoButton";
 import MapInfoModal from "../../components/buildings_map/MapInfoModal";
 import SaveDataModal from "../../components/buildings_map/SaveDataModal";
+import BuildingFormModal from "../../components/buildings_map/BuildingFormModal";
 import {
   getBuildingWmslink,
   getRoadWmsLink,
@@ -42,14 +48,15 @@ import MapComponent from "../../components/mapcomponent/MapComponent";
 import { usePermissionContext } from "../../hooks/PermissionContext";
 import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
+import { isPointInPolygon } from "../../helpers/geo";
+import { getWmsFeatureInfo } from "../../service/wms_feature_info";
 
 const BuildingMapScreen = () => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const { permissionStatus, locationEnabled, requestPermissions } =
     usePermissionContext();
-  const { buildingCoords } = useSelector((state) => state.map);
+  const { buildingCoords, buildingsData } = useSelector((state) => state.map);
   const dispatch = useDispatch();
-  // INITIAL_LOCATION
   const [location, setLocation] = useState();
   const [isInfoModalVisible, setisInfoModalVisible] = useState(false);
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
@@ -69,17 +76,24 @@ const BuildingMapScreen = () => {
 
   const [showWmsDialog, setShowWmsDialog] = useState(false);
 
+  const [selectedBuildingIndex, setSelectedBuildingIndex] = useState(null);
+  const [selectedBuildingSource, setSelectedBuildingSource] = useState(null);
+  const [selectedWmsFeature, setSelectedWmsFeature] = useState(null);
+  const [mapSizePx, setMapSizePx] = useState(null);
+  const [mapRegion, setMapRegion] = useState(null);
+  const mapRef = useRef(null);
+  const [isBuildingFormVisible, setIsBuildingFormVisible] = useState(false);
+  const [isBuildingFormSaving, setIsBuildingFormSaving] = useState(false);
+
   const fetchLocation = useCallback(async () => {
     try {
-      const response = await getCurrentLocation(true); // Fetch location
+      const response = await getCurrentLocation(true);
       if (response && response.coords) {
-        setLocation(response.coords); // Set location state if available
+        setLocation(response.coords);
       } else {
         throw new Error("No coordinates found");
       }
     } catch (error) {
-      console.log("Error while fetching location:", error);
-
       if (error.code === 1) {
         await requestPermissions();
       } else if (error.code === 2) {
@@ -120,8 +134,6 @@ const BuildingMapScreen = () => {
         setWmslink(response.data.baseUrl + data.buildings);
       })
       .catch((err) => {
-        console.log("Error!!", err);
-
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -138,7 +150,6 @@ const BuildingMapScreen = () => {
         setRoadWmsLink(response.data.baseUrl + data.roads);
       })
       .catch((err) => {
-        console.log("Error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -156,7 +167,6 @@ const BuildingMapScreen = () => {
         setWardWmsLink(response.data.baseUrl + data.wards);
       })
       .catch((err) => {
-        console.log("error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -174,6 +184,53 @@ const BuildingMapScreen = () => {
       setBuildingCoordsState([...buildingCoordsState, { latitude, longitude }]);
     }
     markerPressedRef.current = false;
+  };
+
+  const selectLocalBuildingByTap = (coordinate) => {
+    if (!buildingsData?.length) return false;
+
+    const foundIndex = buildingsData.findIndex(
+      (b) => !!b?.coords?.length && isPointInPolygon(coordinate, b.coords)
+    );
+
+    if (foundIndex >= 0) {
+      onSelectLocalBuilding(foundIndex);
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleMapPress = (event) => {
+    if (isEditing) {
+      handlePressOnMap(event);
+      return;
+    }
+
+    const coordinate = event?.nativeEvent?.coordinate;
+    if (!coordinate) return;
+
+    const foundLocal = selectLocalBuildingByTap(coordinate);
+    if (foundLocal) return;
+
+    void (async () => {
+      try {
+        if (!wmslinks || !mapRef.current || !mapSizePx || !mapRegion) {
+          return;
+        }
+        const pointPx = await mapRef.current.pointForCoordinate(coordinate);
+        const feature = await getWmsFeatureInfo({
+          wmsTileTemplate: wmslinks,
+          coordinate,
+          region: mapRegion,
+          mapSizePx,
+          pointPx,
+        });
+        if (feature) {
+          onSelectWmsBuilding(feature);
+        }
+      } catch {}
+    })();
   };
 
   // const renderMarkers = (coordinate, index) => {
@@ -269,12 +326,154 @@ const BuildingMapScreen = () => {
     setDragging(true);
   };
 
-  // const handleMarkerDragEnd = (index, event) => {
-  //   setDragging(false);
-  //   // handleMarkerDrag(index, event);
-  // };
-
   const getLabel = (key) => contentsLabel?.[key] || key;
+
+  const onSelectLocalBuilding = (index) => {
+    if (isEditing) return;
+    setSelectedBuildingIndex(index);
+    setSelectedBuildingSource("local");
+    setSelectedWmsFeature(null);
+    setIsBuildingFormVisible(true);
+  };
+
+  const onSelectWmsBuilding = (feature) => {
+    if (isEditing) return;
+    setSelectedBuildingIndex(null);
+    setSelectedBuildingSource("wms");
+    setSelectedWmsFeature(feature);
+    setIsBuildingFormVisible(true);
+  };
+
+  const selectedLocalBuilding =
+    selectedBuildingSource === "local" && selectedBuildingIndex !== null
+      ? buildingsData?.[selectedBuildingIndex]
+      : null;
+
+  const selectedFormInitialValues =
+    selectedBuildingSource === "local"
+      ? {
+          temp_building_code: selectedLocalBuilding?.temp_building_code ?? "",
+          tax_code: selectedLocalBuilding?.tax_code ?? "",
+        }
+      : {
+          temp_building_code: String(
+            selectedWmsFeature?.properties?.bin ??
+              selectedWmsFeature?.properties?.house_number ??
+              selectedWmsFeature?.properties?.temp_building_code ??
+              ""
+          ),
+          tax_code: String(
+            selectedWmsFeature?.properties?.tax_code ?? ""
+          ),
+        };
+
+  const handleBuildingFormSubmit = async ({ temp_building_code, tax_code }) => {
+    try {
+      setIsBuildingFormSaving(true);
+
+      if (selectedBuildingSource === "local" && selectedLocalBuilding) {
+        const coords = selectedLocalBuilding.coords;
+        const xml = buildBuildingKml({ tempBuildingCode: temp_building_code, coords });
+        const newPath = `${RNFB.fs.dirs.DownloadDir}/${temp_building_code}_${tax_code}.kml`;
+        const oldPath = selectedLocalBuilding.path;
+
+        const doWrite = () =>
+          RNFB.fs
+            .writeFile(newPath, xml)
+            .then(async () => {
+              if (oldPath && oldPath !== newPath) {
+                try {
+                  await RNFB.fs.unlink(oldPath);
+                } catch (e) {}
+              }
+
+              dispatch(
+                updateBuildingData({
+                  index: selectedBuildingIndex,
+                  patch: {
+                    temp_building_code,
+                    tax_code,
+                    path: newPath,
+                  },
+                })
+              );
+
+              Alert.alert(
+                getLabel("Saved"),
+                getLabel("Building data saved to local storage"),
+                [{ text: getLabel("OK") }]
+              );
+            })
+            .finally(() => {
+              setIsBuildingFormSaving(false);
+              setIsBuildingFormVisible(false);
+            });
+
+        if (Platform.constants.Release >= 13) {
+          await doWrite();
+          return;
+        }
+
+        askStoragePermission(() => {
+          doWrite();
+        });
+
+        return;
+      }
+
+      if (selectedBuildingSource === "wms" && selectedWmsFeature) {
+        const coords = selectedWmsFeature.coords;
+        if (!coords?.length) {
+          Alert.alert(
+            getLabel("Error"),
+            getLabel("Selected building geometry not available for saving."),
+            [{ text: getLabel("OK") }]
+          );
+          return;
+        }
+
+        const xml = buildBuildingKml({ tempBuildingCode: temp_building_code, coords });
+        const path = `${RNFB.fs.dirs.DownloadDir}/${temp_building_code}_${tax_code}.kml`;
+
+        const doWrite = () =>
+          RNFB.fs
+            .writeFile(path, xml)
+            .then(() => {
+              dispatch(
+                upsertBuildingData({
+                  temp_building_code,
+                  tax_code,
+                  path,
+                  coords,
+                  source: "wms",
+                  featureId: selectedWmsFeature.featureId,
+                  properties: selectedWmsFeature.properties,
+                })
+              );
+              Alert.alert(
+                getLabel("Saved"),
+                getLabel("Building data saved to local storage"),
+                [{ text: getLabel("OK") }]
+              );
+            })
+            .finally(() => {
+              setIsBuildingFormSaving(false);
+              setIsBuildingFormVisible(false);
+            });
+
+        if (Platform.constants.Release >= 13) {
+          await doWrite();
+          return;
+        }
+
+        askStoragePermission(() => {
+          doWrite();
+        });
+      }
+    } finally {
+      setIsBuildingFormSaving(false);
+    }
+  };
 
   const haveUnsavedChanges = useMemo(
     () => JSON.stringify(savedCoords) !== JSON.stringify(buildingCoordsState),
@@ -327,8 +526,14 @@ const BuildingMapScreen = () => {
       {locationEnabled && permissionStatus && location ? (
         <>
           <MapComponent
-            handleMarkerPress={isEditing ? handlePressOnMap : undefined}
+            handleMarkerPress={handleMapPress}
             markerdrag={!dragging}
+            mapRef={mapRef}
+            onRegionChangeComplete={setMapRegion}
+            onMapLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setMapSizePx({ width, height });
+            }}
           >
             {buildingCoordsState.map((marker, index) => (
               <Marker
@@ -420,6 +625,7 @@ const BuildingMapScreen = () => {
               </>
             )}
             {showWmsLink && wmslinks && (
+              'building' &&
               <WMSTile
                 urlTemplate={wmslinks}
                 zIndex={1}
@@ -443,6 +649,30 @@ const BuildingMapScreen = () => {
                 tileSize={512}
               />
             )}
+
+            {!!buildingsData?.length &&
+              buildingsData.map((item, index) => {
+                const isSelected =
+                  selectedBuildingSource === "local" &&
+                  selectedBuildingIndex === index;
+
+                if (!item?.coords?.length) return null;
+
+                return (
+                  <Polygon
+                    key={`local-building-${index}-${item?.temp_building_code ?? "na"}`}
+                    coordinates={item.coords}
+                    tappable
+                    strokeWidth={isSelected ? 3 : 2}
+                    strokeColor={isSelected ? COLORS.error : COLORS.primary}
+                    fillColor={
+                      isSelected ? "rgba(244,67,54,0.18)" : "rgba(45,87,250,0.10)"
+                    }
+                    zIndex={20}
+                    onPress={() => onSelectLocalBuilding(index)}
+                  />
+                );
+              })}
           </MapComponent>
 
           <MapInfoButton
@@ -495,6 +725,16 @@ const BuildingMapScreen = () => {
             visible={isSaveModalVisible}
             onClose={setIsSaveModalVisible}
             onDataSaved={handleDataSaved}
+          />
+          <BuildingFormModal
+            visible={isBuildingFormVisible}
+            onClose={setIsBuildingFormVisible}
+            initialValues={selectedFormInitialValues}
+            title={getLabel("Edit Building Info")}
+            submitLabel={
+              isBuildingFormSaving ? getLabel("Saving...") : getLabel("Save")
+            }
+            onSubmit={handleBuildingFormSubmit}
           />
         </>
       ) : (

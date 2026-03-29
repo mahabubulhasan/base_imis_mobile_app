@@ -9,7 +9,6 @@ import {resetBuildingCoords, toogleMapType} from '../../store/slices/map.slice';
 const BuidingsMapRightHeader = () => {
   const dispatch = useDispatch();
   const {buildingCoords} = useSelector(state => state.map);
-  console.log('BuissssldingCoords!!', buildingCoords);
   const resetEnabled = buildingCoords.length > 0;
 
   const handleToogleMapType = () => dispatch(toogleMapType());

@@ -24,7 +24,6 @@ const mapSlice = createSlice({
       state.buildingCoords = filteredCoords;
     },
     addBuildingCoordsData: (state, action) => {
-      console.log('Action.Payload!!', action.payload);
       state.buildingCoords = action.payload;
     },
 
@@ -64,13 +63,39 @@ const mapSlice = createSlice({
       state.buildingsData = filteredData;
     },
 
+    updateBuildingData: (state, {payload}) => {
+      const {index, patch} = payload || {};
+      if (index === null || index === undefined) return;
+      if (!state.buildingsData[index]) return;
+      state.buildingsData[index] = {...state.buildingsData[index], ...patch};
+    },
+
+    upsertBuildingData: (state, {payload}) => {
+      if (!payload) return;
+      const {featureId} = payload;
+
+      if (featureId) {
+        const existingIndex = state.buildingsData.findIndex(
+          item => item?.featureId === featureId,
+        );
+        if (existingIndex >= 0) {
+          state.buildingsData[existingIndex] = {
+            ...state.buildingsData[existingIndex],
+            ...payload,
+          };
+          return;
+        }
+      }
+
+      const created_date = dayjs().format('MM-DD-YYYY, h:mm:ss a');
+      state.buildingsData.push({...payload, created_date});
+    },
+
     storeContainmentCoords: (state, {payload}) => {
-      console.log('payload', payload);
       state.containmentCoords = payload;
     },
 
     addContainmentData: (state, {payload}) => {
-      console.log('containment ', payload);
       const created_date = dayjs().format('MM-DD-YYYY, h:mm:ss a');
       const data = {...payload, created_date};
       state.containmentData.push(data);
@@ -109,6 +134,8 @@ export const {
   addBuildingsData,
   addDistanceData,
   removeBuildingData,
+  updateBuildingData,
+  upsertBuildingData,
   addContainmentData,
   removeContainmentData,
   addSewageData,
