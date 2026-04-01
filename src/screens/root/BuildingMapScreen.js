@@ -2,7 +2,6 @@ import { FAB, Text } from "react-native-paper";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Alert,
-  Dimensions,
   Image,
   Platform,
   StyleSheet,
@@ -25,18 +24,14 @@ import colors from "../../core/theme/colors";
 import {
   resetBuildingCoords,
   addBuildingCoordsData,
-  updateBuildingData,
-  upsertBuildingData,
 } from "../../store/slices/map.slice";
 import { getCurrentLocation } from "../../helpers/location";
 import { askStoragePermission } from "../../helpers/permissions";
-import RNFB from "react-native-blob-util";
-import { buildBuildingKml } from "../../helpers/kml/buildingKml";
+import { useNavigation } from "@react-navigation/native";
 
 import MapInfoButton from "../../components/buildings_map/MapInfoButton";
 import MapInfoModal from "../../components/buildings_map/MapInfoModal";
 import SaveDataModal from "../../components/buildings_map/SaveDataModal";
-import BuildingFormModal from "../../components/buildings_map/BuildingFormModal";
 import {
   getBuildingWmslink,
   getRoadWmsLink,
@@ -50,8 +45,10 @@ import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
 import { isPointInPolygon } from "../../helpers/geo";
 import { getWmsFeatureInfo } from "../../service/wms_feature_info";
+import { ROUTES } from "../../core/constants/routes";
 
 const BuildingMapScreen = () => {
+  const navigation = useNavigation();
   const { contentsLabel } = useSelector((state) => state.auth);
   const { permissionStatus, locationEnabled, requestPermissions } =
     usePermissionContext();
@@ -78,12 +75,9 @@ const BuildingMapScreen = () => {
 
   const [selectedBuildingIndex, setSelectedBuildingIndex] = useState(null);
   const [selectedBuildingSource, setSelectedBuildingSource] = useState(null);
-  const [selectedWmsFeature, setSelectedWmsFeature] = useState(null);
   const [mapSizePx, setMapSizePx] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
   const mapRef = useRef(null);
-  const [isBuildingFormVisible, setIsBuildingFormVisible] = useState(false);
-  const [isBuildingFormSaving, setIsBuildingFormSaving] = useState(false);
 
   const fetchLocation = useCallback(async () => {
     try {
@@ -129,11 +123,16 @@ const BuildingMapScreen = () => {
   const getWmsLink = () => {
     getBuildingWmslink()
       .then((response) => {
+        console.log("[WMS][building] raw response", response?.data);
+        console.log("[WMS][building] baseUrl", response?.data?.baseUrl);
+        console.log("[WMS][building] path", response?.data?.data?.buildings);
+        console.log("[WMS][building] final", response?.data?.baseUrl + response?.data?.data?.buildings);
         const { data } = response.data;
 
         setWmslink(response.data.baseUrl + data.buildings);
       })
       .catch((err) => {
+        console.log("[WMS][building] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -146,10 +145,15 @@ const BuildingMapScreen = () => {
   const roadLink = () => {
     getRoadWmsLink()
       .then((response) => {
+        console.log("[WMS][building] raw response", response?.data);
+        console.log("[WMS][building] baseUrl", response?.data?.baseUrl);
+        console.log("[WMS][building] path", response?.data?.data?.buildings);
+        console.log("[WMS][building] final", response?.data?.baseUrl + response?.data?.data?.buildings);
         const { data } = response.data;
         setRoadWmsLink(response.data.baseUrl + data.roads);
       })
       .catch((err) => {
+        console.log("[WMS][road] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -167,6 +171,7 @@ const BuildingMapScreen = () => {
         setWardWmsLink(response.data.baseUrl + data.wards);
       })
       .catch((err) => {
+        console.log("[WMS][ward] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -332,147 +337,23 @@ const BuildingMapScreen = () => {
     if (isEditing) return;
     setSelectedBuildingIndex(index);
     setSelectedBuildingSource("local");
-    setSelectedWmsFeature(null);
-    setIsBuildingFormVisible(true);
+    navigation.navigate(ROUTES.building_edit, { source: "local", index });
   };
 
   const onSelectWmsBuilding = (feature) => {
     if (isEditing) return;
+    const bin = feature?.properties?.bin;
+    if (bin == null || String(bin).trim() === "") {
+      Alert.alert(
+        getLabel("Error"),
+        getLabel("Building identifier (BIN) is missing."),
+        [{ text: getLabel("OK") }]
+      );
+      return;
+    }
     setSelectedBuildingIndex(null);
     setSelectedBuildingSource("wms");
-    setSelectedWmsFeature(feature);
-    setIsBuildingFormVisible(true);
-  };
-
-  const selectedLocalBuilding =
-    selectedBuildingSource === "local" && selectedBuildingIndex !== null
-      ? buildingsData?.[selectedBuildingIndex]
-      : null;
-
-  const selectedFormInitialValues =
-    selectedBuildingSource === "local"
-      ? {
-          temp_building_code: selectedLocalBuilding?.temp_building_code ?? "",
-          tax_code: selectedLocalBuilding?.tax_code ?? "",
-        }
-      : {
-          temp_building_code: String(
-            selectedWmsFeature?.properties?.bin ??
-              selectedWmsFeature?.properties?.house_number ??
-              selectedWmsFeature?.properties?.temp_building_code ??
-              ""
-          ),
-          tax_code: String(
-            selectedWmsFeature?.properties?.tax_code ?? ""
-          ),
-        };
-
-  const handleBuildingFormSubmit = async ({ temp_building_code, tax_code }) => {
-    try {
-      setIsBuildingFormSaving(true);
-
-      if (selectedBuildingSource === "local" && selectedLocalBuilding) {
-        const coords = selectedLocalBuilding.coords;
-        const xml = buildBuildingKml({ tempBuildingCode: temp_building_code, coords });
-        const newPath = `${RNFB.fs.dirs.DownloadDir}/${temp_building_code}_${tax_code}.kml`;
-        const oldPath = selectedLocalBuilding.path;
-
-        const doWrite = () =>
-          RNFB.fs
-            .writeFile(newPath, xml)
-            .then(async () => {
-              if (oldPath && oldPath !== newPath) {
-                try {
-                  await RNFB.fs.unlink(oldPath);
-                } catch (e) {}
-              }
-
-              dispatch(
-                updateBuildingData({
-                  index: selectedBuildingIndex,
-                  patch: {
-                    temp_building_code,
-                    tax_code,
-                    path: newPath,
-                  },
-                })
-              );
-
-              Alert.alert(
-                getLabel("Saved"),
-                getLabel("Building data saved to local storage"),
-                [{ text: getLabel("OK") }]
-              );
-            })
-            .finally(() => {
-              setIsBuildingFormSaving(false);
-              setIsBuildingFormVisible(false);
-            });
-
-        if (Platform.constants.Release >= 13) {
-          await doWrite();
-          return;
-        }
-
-        askStoragePermission(() => {
-          doWrite();
-        });
-
-        return;
-      }
-
-      if (selectedBuildingSource === "wms" && selectedWmsFeature) {
-        const coords = selectedWmsFeature.coords;
-        if (!coords?.length) {
-          Alert.alert(
-            getLabel("Error"),
-            getLabel("Selected building geometry not available for saving."),
-            [{ text: getLabel("OK") }]
-          );
-          return;
-        }
-
-        const xml = buildBuildingKml({ tempBuildingCode: temp_building_code, coords });
-        const path = `${RNFB.fs.dirs.DownloadDir}/${temp_building_code}_${tax_code}.kml`;
-
-        const doWrite = () =>
-          RNFB.fs
-            .writeFile(path, xml)
-            .then(() => {
-              dispatch(
-                upsertBuildingData({
-                  temp_building_code,
-                  tax_code,
-                  path,
-                  coords,
-                  source: "wms",
-                  featureId: selectedWmsFeature.featureId,
-                  properties: selectedWmsFeature.properties,
-                })
-              );
-              Alert.alert(
-                getLabel("Saved"),
-                getLabel("Building data saved to local storage"),
-                [{ text: getLabel("OK") }]
-              );
-            })
-            .finally(() => {
-              setIsBuildingFormSaving(false);
-              setIsBuildingFormVisible(false);
-            });
-
-        if (Platform.constants.Release >= 13) {
-          await doWrite();
-          return;
-        }
-
-        askStoragePermission(() => {
-          doWrite();
-        });
-      }
-    } finally {
-      setIsBuildingFormSaving(false);
-    }
+    navigation.navigate(ROUTES.building_edit, { source: "wms", bin });
   };
 
   const haveUnsavedChanges = useMemo(
@@ -725,16 +606,6 @@ const BuildingMapScreen = () => {
             visible={isSaveModalVisible}
             onClose={setIsSaveModalVisible}
             onDataSaved={handleDataSaved}
-          />
-          <BuildingFormModal
-            visible={isBuildingFormVisible}
-            onClose={setIsBuildingFormVisible}
-            initialValues={selectedFormInitialValues}
-            title={getLabel("Edit Building Info")}
-            submitLabel={
-              isBuildingFormSaving ? getLabel("Saving...") : getLabel("Save")
-            }
-            onSubmit={handleBuildingFormSubmit}
           />
         </>
       ) : (

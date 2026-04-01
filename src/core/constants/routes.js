@@ -10,6 +10,7 @@ export const ROUTES = {
   // map & info collection
   building_map: 'building_map',
   building_map_details: 'building_map_details',
+  building_edit: 'building_edit',
   containment_map: 'containment_map',
   building_data: 'building_data',
   containment_data: 'containment_data',
