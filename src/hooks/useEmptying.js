@@ -49,6 +49,7 @@ const useEmptying = (application) => {
     service_receiver_contact: "",
     latitude: "",
     longitude: "",
+    building_id: "",
   };
 
   const [drivers, setDrivers] = useState([]);
@@ -357,6 +358,11 @@ const useEmptying = (application) => {
           contentsLabel?.["The Total Cost is required."] ||
           "The Total Cost is required.";
       }
+      if (!values.building_id) {
+        errors.building_id =
+          contentsLabel?.["Please select a building from map."] ||
+          "Please select a building from map.";
+      }
       if (application?.image_status == "false" && !values.house_image) {
         errors.house_image =
           contentsLabel?.["The House Image must be an image file."] ||
@@ -410,6 +416,7 @@ const useEmptying = (application) => {
       // formdata.append('total_cost', 55);
 
       formdata.append("application_id", values.application_id);
+      formdata.append("building_id", values.building_id);
       // formdata.append('application_id', 2);
 
       formdata.append("emptying_reason", values.emptying_reason);
