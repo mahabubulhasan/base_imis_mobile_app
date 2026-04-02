@@ -1,6 +1,7 @@
 export const URLS = {
   login: "login",
   emptyingService: "assessed-applications",
+  peindingApplicatoins: "pending-applications",
   assessment: "applications",
   drivers: "drivers",
   emptiers: "emptiers",

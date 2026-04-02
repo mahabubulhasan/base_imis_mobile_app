@@ -9,11 +9,6 @@ import { useSelector } from "react-redux";
 
 const ApplicationListCard = ({ item, onCall, onLocation, onStart }) => {
   const [expanded, setExpanded] = useState(true);
-  console.log("Item!!", item);
-  const formatSize = (value) => {
-    if (!value) return "N/A"; // Handle undefined or null values
-    return value.startsWith("{") ? value.replace(/[{}]/g, "") : value;
-  };
 
   const { contentsLabel } = useSelector((state) => state.auth);
   const getLabel = (key) => contentsLabel?.[key] || key;
@@ -36,69 +31,55 @@ const ApplicationListCard = ({ item, onCall, onLocation, onStart }) => {
           <View style={styles.row}>
             <Text>{getLabel("Application Date")}: </Text>
             <Text style={styles.text}>
-              {item?.application_date
-                ? dayjs(item?.application_date).format("DD MMMM YYYY")
+              {item?.created_at
+                ? dayjs(item?.created_at).format("DD MMMM YYYY")
                 : "N/A"}
             </Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("House Number")}: </Text>
+            <Text>{getLabel("Tax ID")}: </Text>
             <Text style={styles.text}>
-              {item?.building_house_number
-                ? item?.building_house_number
-                : "N/A"}
+              {item?.tax_code ? item?.tax_code : "N/A"}
             </Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("BIN")}: </Text>
-            <Text style={styles.text}>{item?.bin ? item?.bin : "N/A"}</Text>
+            <Text>{getLabel("Customer Name")}: </Text>
+            <Text style={styles.text}>
+              {item?.applicant_name ? item?.applicant_name : "N/A"}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text>{getLabel("Ward")}: </Text>
             <Text style={styles.text}>{item?.ward ? item?.ward : "N/A"}</Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("Applicant's Name")}: </Text>
+            <Text>{getLabel("Holding Owner Name")}: </Text>
             <Text style={styles.text}>
-              {item?.applicant_name ? item?.applicant_name : "N/A"}
+              {item?.customer_name ? item?.customer_name : "N/A"}
             </Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("Applicant's Gender")}:</Text>
-            <Text style={styles.text}>{item?.applicant_gender ?? "N/A"}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text>{getLabel("Applicant's Contact")}:</Text>
+            <Text>{getLabel("Customer Contact")}:</Text>
             <Text style={styles.text}>
               {item?.applicant_contact ? item?.applicant_contact : "N/A"}
             </Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("Emergency Desluding Status")}:</Text>
+            <Text>{getLabel("Road Code")}:</Text>
             <Text style={styles.text}>
-              {item?.emergency_desludging_status ? "Yes" : "No"}
+              {item?.road_code ? item?.road_code : "N/A"}
             </Text>
           </View>
           <View style={styles.row}>
-            <Text>{getLabel("Road width (m)")}: </Text>
-            <Text style={styles.text}>{item?.carrying_width ?? "N/A"}</Text>
+            <Text>{getLabel("Address")}: </Text>
+            <Text style={styles.text}>
+              {item?.address ? item?.address : "N/A"}
+            </Text>
           </View>
-          {item?.containment_id && (
-            <View style={styles.row}>
-              <Text>{getLabel("Containment Id")}: </Text>
-              <Text style={styles.text}>
-                {formatSize(item?.containment_id)}
-              </Text>
-            </View>
-          )}
-          {item?.containment_size && (
-            <View style={styles.row}>
-              <Text>{getLabel("Containment Size (m³)")}:</Text>
-              <Text style={styles.text}>
-                {formatSize(item?.containment_size)}
-              </Text>
-            </View>
-          )}
+          <View style={styles.row}>
+            <Text>{getLabel("Notes")}: </Text>
+            <Text style={styles.text}>{item?.note ? item?.note : "N/A"}</Text>
+          </View>
           <View style={styles.row}>
             <Text>{getLabel("Proposed Emptying Date")}:</Text>
             <Text style={styles.text}>

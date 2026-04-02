@@ -4,6 +4,9 @@ import { URLS } from "../core/constants/urls";
 export const emptyingService = async () => {
   return await client.get(URLS.emptyingService);
 };
+export const pendingApplications = async () => {
+  return await client.get(URLS.peindingApplicatoins);
+}
 export const assessmentService = async () => {
   return await client.get(URLS.assessment);
 };

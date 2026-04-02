@@ -16,6 +16,7 @@ import { ROUTES } from "../../core/constants/routes";
 import {
   assessmentService,
   emptyingService,
+  pendingApplications
 } from "../../service/supervisor_service";
 import { useDispatch, useSelector } from "react-redux";
 import { resetToken } from "../../store/slices/auth.slice";
@@ -25,6 +26,7 @@ import LoadingSpinner from "../../components/common/LoadingSpinner";
 import PrimarySpinner from "../../components/common/PrimarySpinner";
 import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 
 export default function ApplicationListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
@@ -32,7 +34,30 @@ export default function ApplicationListScreen({ navigation, route }) {
   const { assessment, emptying } = route.params;
   const dispatch = useDispatch();
 
-  console.log("Data Of Application List", data);
+  const getPendingApplicationsService = () => {
+    setIsLoading(true);
+    pendingApplications()
+      .then((res) => {
+        const { data, success, error } = res.data;
+        if (success) {
+          setData(data.applications);
+        } else {
+          console.log(error);
+        }
+      })
+      .catch((err) => {
+        console.log("errr", err);
+
+        if (err?.response?.status === 500) {
+          Alert.alert(
+            "500",
+            "Something is wrong, please try again or at a later time."
+          );
+        }
+      })
+      .finally(() => setIsLoading(false));
+  };
+
   //Application Emptying Service api
   const getApplicationEmptyingService = () => {
     setIsLoading(true);
@@ -86,7 +111,8 @@ export default function ApplicationListScreen({ navigation, route }) {
   useFocusEffect(
     useCallback(() => {
       if (emptying) {
-        getApplicationEmptyingService();
+        // getApplicationEmptyingService();
+        getPendingApplicationsService();
       }
       if (assessment) {
         getApplicationAssessment();
@@ -104,7 +130,7 @@ export default function ApplicationListScreen({ navigation, route }) {
   };
 
   const openPhone = (item) => {
-    Linking.openURL(`tel:${item?.applicant_contact}`);
+    Linking.openURL(`tel:${item?.customer_contact}`);
   };
 
   const openGoogleMap = (item) => {
@@ -113,7 +139,7 @@ export default function ApplicationListScreen({ navigation, route }) {
       android: "geo:0,0?q=",
     });
     const latLng = `${item.geometry.coordinates[0][0][0][1]},${item.geometry.coordinates[0][0][0][0]}`;
-    const label = `${item?.applicant_name}'s location`;
+    const label = `${item?.customer_name}'s location`;
     const url = Platform.select({
       ios: `${scheme}${label}@${latLng}`,
       android: `${scheme}${latLng}(${label})`,
@@ -142,7 +168,7 @@ export default function ApplicationListScreen({ navigation, route }) {
           )}
           onRefresh={
             emptying
-              ? () => getApplicationEmptyingService()
+              ? () => getPendingApplicationsService()
               : () => getApplicationAssessment()
           }
           refreshing={isLoading}
