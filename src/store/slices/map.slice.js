@@ -54,8 +54,25 @@ const mapSlice = createSlice({
 
     addBuildingsData: (state, {payload}) => {
       const created_date = dayjs().format('MM-DD-YYYY, h:mm:ss a');
-      const data = {...payload, created_date};
+      const data = {
+        upload_status: 'pending',
+        last_error: null,
+        updated_at: dayjs().toISOString(),
+        ...payload,
+        created_date,
+      };
       state.buildingsData.push(data);
+    },
+
+    updateBuildingData: (state, {payload}) => {
+      const {index, patch} = payload;
+      if (state.buildingsData[index]) {
+        state.buildingsData[index] = {
+          ...state.buildingsData[index],
+          ...patch,
+          updated_at: dayjs().toISOString(),
+        };
+      }
     },
 
     removeBuildingData: (state, {payload}) => {
@@ -132,9 +149,9 @@ export const {
   storeContainmentCoords,
   removeContainmentCoords,
   addBuildingsData,
+  updateBuildingData,
   addDistanceData,
   removeBuildingData,
-  updateBuildingData,
   upsertBuildingData,
   addContainmentData,
   removeContainmentData,

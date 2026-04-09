@@ -18,6 +18,7 @@ export const ROUTES = {
   containment_viewer: 'containment_viewer',
   applicant_viewer: 'applicant_viewer',
   building_survey: 'building_survey',
+  create_building_after_draw: 'create_building_after_draw',
 
   // form survey/assessment
   containment_assessment: 'containment_assessment',

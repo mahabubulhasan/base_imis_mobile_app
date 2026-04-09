@@ -15,12 +15,11 @@ import HorizontalSpacer from "../../components/common/HorizontalSpacer";
 import VerticalSpacer from "../../components/common/VerticalSpacer";
 
 import { COLORS, SPACINGS } from "../../core/theme";
-import { removeBuildingData } from "../../store/slices/map.slice";
-import { uploadBuildingData } from "../../service/building_service";
+import { removeBuildingData, updateBuildingData } from "../../store/slices/map.slice";
+import { buildSaveBuildingFormData } from "../../service/building_service";
 
 import { useState } from "react";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
-import mime from "mime";
 import RNFB from "react-native-blob-util";
 import { ROUTES } from "../../core/constants/routes";
 import { useEffect } from "react";
@@ -61,35 +60,21 @@ const BuildingDataScreen = ({ navigation }) => {
     );
   };
 
-  const convertDate = (date) => {
-    let newDate = date.split("-").reverse();
-    let temp = newDate[2];
-    newDate[2] = newDate[1];
-    newDate[1] = temp;
-    newDate = newDate.join("-");
-    return newDate;
-  };
-
   const onUpload = async (item, index) => {
-    let date = item.created_date.split(",")[0];
-    let collected_date = convertDate(date);
     setLoading(true);
-    const data = new FormData();
-
-    let kml = "file://" + item.path;
-
-    console.log("kml ", kml);
-
-    data.append("temp_building_code", item.temp_building_code);
-    data.append("tax_code", item.tax_code);
-    data.append("collected_date", collected_date);
-    data.append("kml", {
-      uri: kml,
-      type: mime.getType(kml),
-      name: "building.kml",
-    });
+    dispatch(
+      updateBuildingData({
+        index,
+        patch: {
+          upload_status: "uploading",
+          last_error: null,
+          field_errors: null,
+        },
+      })
+    );
 
     const token = await AsyncStorage.getItem("token");
+    const data = buildSaveBuildingFormData(item);
 
     const url = `${BASE_URL_ENV}/api/${URLS.uploadBuildingData}`;
 
@@ -106,7 +91,7 @@ const BuildingDataScreen = ({ navigation }) => {
       .then((res) => {
         console.log("res", res);
 
-        const { status, success, errors, message } = res;
+        const { status, success, errors, message } = res || {};
 
         if (status || success) {
           Alert.alert(getLabel("Uploaded"), message, [
@@ -118,23 +103,33 @@ const BuildingDataScreen = ({ navigation }) => {
           RNFB.fs.unlink(item.path);
         } else {
           if (errors) {
-            const { temp_building_code, tax_code } = errors;
-
-            if (temp_building_code) {
-              Alert.alert(getLabel("Error"), temp_building_code[0], [
-                {
-                  text: getLabel("OK"), // Using "CANCEL" from your provided list
+            const firstKey = Object.keys(errors)[0];
+            const firstMessage = errors[firstKey]?.[0] || message;
+            dispatch(
+              updateBuildingData({
+                index,
+                patch: {
+                  upload_status: "failed",
+                  last_error: firstMessage || "Validation failed.",
+                  field_errors: errors,
                 },
-              ]);
-              return;
-            } else if (tax_code) {
-              Alert.alert(getLabel("Error"), tax_code[0], [
-                {
-                  text: getLabel("OK"), // Using "CANCEL" from your provided list
-                },
-              ]);
-            }
+              })
+            );
+            Alert.alert(getLabel("Error"), firstMessage || getLabel("Validation failed"), [
+              {
+                text: getLabel("OK"),
+              },
+            ]);
           } else {
+            dispatch(
+              updateBuildingData({
+                index,
+                patch: {
+                  upload_status: "failed",
+                  last_error: message || "Upload failed.",
+                },
+              })
+            );
             Alert.alert(getLabel("Error"), message, [
               {
                 text: getLabel("OK"), // Using "CANCEL" from your provided list
@@ -147,8 +142,20 @@ const BuildingDataScreen = ({ navigation }) => {
         console.log("building err", err);
 
         const { message } = err?.response?.data;
+        const fieldErrors = err?.response?.data?.errors;
 
         setLoading(false);
+
+        dispatch(
+          updateBuildingData({
+            index,
+            patch: {
+              upload_status: "failed",
+              last_error: message || err?.message || "Upload failed.",
+              field_errors: fieldErrors || null,
+            },
+          })
+        );
 
         if (err?.response?.status === 500) {
           if (message) {
@@ -186,6 +193,14 @@ const BuildingDataScreen = ({ navigation }) => {
 
             <Caption>{getLabel("Created date")}</Caption>
             <Text>{item?.created_date}</Text>
+            <Caption>{getLabel("Upload status")}</Caption>
+            <Text>{item?.upload_status || "pending"}</Text>
+            {!!item?.last_error && (
+              <>
+                <Caption>{getLabel("Last error")}</Caption>
+                <Text>{item?.last_error}</Text>
+              </>
+            )}
           </View>
         </Card.Content>
         <VerticalSpacer />

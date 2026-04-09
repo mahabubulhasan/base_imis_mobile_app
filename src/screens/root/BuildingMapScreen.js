@@ -19,19 +19,17 @@ import IonIcon from "react-native-vector-icons/Ionicons";
 import { getDistance } from "geolib";
 
 import { COLORS } from "../../core/theme";
+import { ROUTES } from "../../core/constants/routes";
 import colors from "../../core/theme/colors";
 
 import {
-  resetBuildingCoords,
   addBuildingCoordsData,
 } from "../../store/slices/map.slice";
 import { getCurrentLocation } from "../../helpers/location";
 import { askStoragePermission } from "../../helpers/permissions";
-import { useNavigation } from "@react-navigation/native";
 
 import MapInfoButton from "../../components/buildings_map/MapInfoButton";
 import MapInfoModal from "../../components/buildings_map/MapInfoModal";
-import SaveDataModal from "../../components/buildings_map/SaveDataModal";
 import {
   getBuildingWmslink,
   getRoadWmsLink,
@@ -45,23 +43,18 @@ import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
 import { isPointInPolygon } from "../../helpers/geo";
 import { getWmsFeatureInfo } from "../../service/wms_feature_info";
-import { ROUTES } from "../../core/constants/routes";
 
-const BuildingMapScreen = () => {
-  const navigation = useNavigation();
+const BuildingMapScreen = ({ navigation }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const { permissionStatus, locationEnabled, requestPermissions } =
     usePermissionContext();
   const { buildingCoords, buildingsData } = useSelector((state) => state.map);
   const dispatch = useDispatch();
   const [location, setLocation] = useState();
-  const [isInfoModalVisible, setisInfoModalVisible] = useState(false);
-  const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
   const [buildingCoordsState, setBuildingCoordsState] = useState([]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [savedCoords, setSavedCoords] = useState([]);
-  const [hasEverSaved, setHasEverSaved] = useState(false);
 
   const [showWmsLink, setShowWmsLink] = useState(true);
   const [roadWms, setRoadWms] = useState(true);
@@ -72,6 +65,7 @@ const BuildingMapScreen = () => {
   const [wardWmsLink, setWardWmsLink] = useState("");
 
   const [showWmsDialog, setShowWmsDialog] = useState(false);
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
 
   const [selectedBuildingIndex, setSelectedBuildingIndex] = useState(null);
   const [selectedBuildingSource, setSelectedBuildingSource] = useState(null);
@@ -307,16 +301,6 @@ const BuildingMapScreen = () => {
     );
   };
 
-  const showSaveDataModal = () => {
-    setisInfoModalVisible(false);
-    setIsSaveModalVisible(true);
-  };
-
-  const closeVisibleModals = () => {
-    dispatch(resetBuildingCoords());
-    setIsSaveModalVisible(false);
-    setisInfoModalVisible(false);
-  };
   const getMidpoint = (point1, point2) => ({
     latitude: (point1.latitude + point2.latitude) / 2,
     longitude: (point1.longitude + point2.longitude) / 2,
@@ -390,11 +374,14 @@ const BuildingMapScreen = () => {
     }
   };
 
-  const handleDataSaved = () => {
-    setSavedCoords(buildingCoordsState);
-    setHasEverSaved(true);
-    setIsEditing(false);
-    closeVisibleModals();
+  const openInfoModal = () => {
+    dispatch(addBuildingCoordsData(buildingCoordsState));
+    setIsInfoModalVisible(true);
+  };
+
+  const onPressInfoNext = () => {
+    setIsInfoModalVisible(false);
+    navigation.navigate(ROUTES.create_building_after_draw);
   };
 
   return (
@@ -557,10 +544,7 @@ const BuildingMapScreen = () => {
           </MapComponent>
 
           <MapInfoButton
-            onPress={() => {
-              setisInfoModalVisible(true),
-                dispatch(addBuildingCoordsData(buildingCoordsState));
-            }}
+            onPress={openInfoModal}
             buildingCoords={buildingCoordsState}
           />
 
@@ -595,18 +579,13 @@ const BuildingMapScreen = () => {
             isRoadWmsOn={roadWms}
             isWardWmsOn={wardWms}
           />
-
           <MapInfoModal
             buildingCoords={buildingCoordsState}
             visible={isInfoModalVisible}
-            onClose={setisInfoModalVisible}
-            onNext={showSaveDataModal}
+            onClose={setIsInfoModalVisible}
+            onNext={onPressInfoNext}
           />
-          <SaveDataModal
-            visible={isSaveModalVisible}
-            onClose={setIsSaveModalVisible}
-            onDataSaved={handleDataSaved}
-          />
+
         </>
       ) : (
         <ErrorMessage message={getLabel("Error: Location Permission Denied")} />
