@@ -45,11 +45,19 @@ const EmptyingBuildingPickerScreen = ({ navigation, route }) => {
         });
     };
 
+  const KEY_LABELS = {
+    bin: "BIN",
+    owner_name: "Owner Name",
+    owner_contact: "Owner Contact",
+    ward: "Ward",
+    tax_code: "Tax Code",
+  };
+
   const formatFeatureProperties = (feature, index) => {
     const props = feature?.properties || {};
     const lines = Object.entries(props)
       .filter(([, value]) => value !== null && value !== undefined && value !== "")
-      .map(([key, value]) => `${key}: ${value}`);
+      .map(([key, value]) => `${KEY_LABELS[key] ?? key}: ${value}`);
 
     if (!lines.length) {
       return `Feature ${index + 1}: No properties`;
@@ -76,7 +84,7 @@ const EmptyingBuildingPickerScreen = ({ navigation, route }) => {
       if (!features.length) {
         Alert.alert(
           "Feature info",
-          `No feature found at:\nLat: ${latitude.toFixed(6)}\nLng: ${longitude.toFixed(6)}`
+          `No feature found.`
         );
         return;
       }
