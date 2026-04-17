@@ -51,6 +51,7 @@ const useEmptying = (application) => {
     latitude: "",
     longitude: "",
     building_id: "",
+    containment_id: "",
   };
 
   const [drivers, setDrivers] = useState([]);
@@ -400,6 +401,11 @@ const useEmptying = (application) => {
           contentsLabel?.["Please select a building from map."] ||
           "Please select a building from map.";
       }
+      if (!values.containment_id) {
+        errors.containment_id =
+          contentsLabel?.["Please select a containment."] ||
+          "Please select a containment.";
+      }
       if (application?.image_status == "false" && !values.house_image) {
         errors.house_image =
           contentsLabel?.["The House Image must be an image file."] ||
@@ -454,6 +460,7 @@ const useEmptying = (application) => {
 
       formdata.append("application_id", values.application_id);
       formdata.append("building_id", values.building_id);
+      formdata.append("containment_id", values.containment_id);
       // formdata.append('application_id', 2);
 
       formdata.append("emptying_reason", values.emptying_reason);

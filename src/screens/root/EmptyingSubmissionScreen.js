@@ -51,40 +51,15 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
     treatmentPlants,
     vacutugs,
     vehicles,
+    containments,
     fetchTreatmentPlants,
     fetchVacugtugs,
     fetchDrivers,
     getEmptiers,
     fetchVehicles,
     fetchUserLocation,
+    fetchContainments,
   } = useEmptying(item);
-
-  useEffect(() => {
-    fetchDrivers();
-    getEmptiers();
-    fetchTreatmentPlants();
-    fetchVacugtugs();
-    fetchVehicles();
-    fetchUserLocation();
-  }, []);
-
-  useEffect(() => {
-    const selectedBuilding = route?.params?.selectedBuilding;
-    if (!selectedBuilding) return;
-
-    const selectedBuildingId =
-      typeof selectedBuilding === "object"
-        ? selectedBuilding?.id || ""
-        : selectedBuilding;
-    const selectedBuildingDisplayName =
-      typeof selectedBuilding === "object"
-        ? selectedBuilding?.name || ""
-        : selectedBuilding;
-
-    setFieldValue("building_id", selectedBuildingId);
-    setSelectedBuildingName(selectedBuildingDisplayName);
-    navigation.setParams({ selectedBuilding: undefined });
-  }, [navigation, route?.params?.selectedBuilding, setFieldValue]);
 
   const {
     values,
@@ -121,7 +96,49 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
     latitude,
     longitude,
     building_id,
+    containment_id,
   } = values;
+
+  useEffect(() => {
+    fetchDrivers();
+    getEmptiers();
+    fetchTreatmentPlants();
+    fetchVacugtugs();
+    fetchVehicles();
+    fetchUserLocation();
+  }, []);
+
+  useEffect(() => {
+    const selectedBuilding = route?.params?.selectedBuilding;
+    if (!selectedBuilding) return;
+
+    const selectedBuildingId =
+      typeof selectedBuilding === "object"
+        ? selectedBuilding?.id || ""
+        : selectedBuilding;
+    const selectedBuildingDisplayName =
+      typeof selectedBuilding === "object"
+        ? selectedBuilding?.name || ""
+        : selectedBuilding;
+
+    setFieldValue("building_id", selectedBuildingId);
+    setSelectedBuildingName(selectedBuildingDisplayName);
+    navigation.setParams({ selectedBuilding: undefined });
+  }, [navigation, route?.params?.selectedBuilding, setFieldValue]);
+
+  useEffect(() => {
+    if (!building_id) return;
+    setFieldValue("containment_id", "");
+    fetchContainments(building_id);
+  }, [building_id]);
+
+  useEffect(() => {
+    if (containments.length === 1) {
+      setFieldValue("containment_id", containments[0]);
+    } else if (containments.length === 0) {
+      setFieldValue("containment_id", "");
+    }
+  }, [containments]);
 
   const option = {
     mediaType: "photo",
@@ -254,6 +271,65 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
           {errors.building_id && (
             <HelperText type="error">{errors.building_id}</HelperText>
           )}
+
+          {building_id ? (
+            containments.length > 1 ? (
+              <>
+                <View
+                  style={[
+                    styles.picker,
+                    {
+                      borderColor: errors?.containment_id
+                        ? theme.colors.error
+                        : null,
+                      borderBottomWidth: errors?.containment_id ? 2 : 0.5,
+                    },
+                  ]}
+                >
+                  <Picker
+                    style={styles.pickerTextStyle}
+                    selectedValue={containment_id}
+                    onValueChange={(value) =>
+                      setFieldValue("containment_id", value)
+                    }
+                  >
+                    <Picker.Item
+                      label={
+                        contentsLabel?.["Select Containment"] ||
+                        "Select Containment"
+                      }
+                      value=""
+                      color="#767A7D"
+                    />
+                    {containments.map((c) => (
+                      <Picker.Item
+                        key={c}
+                        value={c}
+                        label={c}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                {errors.containment_id && (
+                  <HelperText type="error">{errors.containment_id}</HelperText>
+                )}
+              </>
+            ) : (
+              <>
+                <TextInput
+                  label={
+                    contentsLabel?.["Containment"] || "Containment"
+                  }
+                  editable={false}
+                  error={!!errors.containment_id}
+                  value={containment_id.toString()}
+                />
+                {errors.containment_id && (
+                  <HelperText type="error">{errors.containment_id}</HelperText>
+                )}
+              </>
+            )
+          ) : null}
 
           <TextInput
             label={
