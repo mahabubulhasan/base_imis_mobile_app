@@ -782,8 +782,8 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
                   <Icon source={"image-plus"} size={36} />
                   <View style={{ alignItems: "center" }}>
                     <Text variant="labelLarge">
-                      {contentsLabel?.[`Upload Receipt Image`] ||
-                        `Upload Receipt Image`}
+                      {contentsLabel?.[`Upload Site Photo`] ||
+                        `Upload Site Photo`}
                     </Text>
                     <Text variant="labelLarge">
                       {contentsLabel?.[`(Max 5MB)`] || `(Max 5MB)`}
