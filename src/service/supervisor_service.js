@@ -35,6 +35,10 @@ export const vacutugTypesAPI = async () => {
   return await client.get(URLS.vacutugTypes);
 };
 
+export const containmentsAPI = async (bin) => {
+  return await client.get(`${URLS.containments}/${bin}`);
+};
+
 //Language
 export const getLanguagesList = async () => {
   return await client.get(URLS.getLanguages);

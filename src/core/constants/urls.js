@@ -20,6 +20,7 @@ export const URLS = {
   sewerCode: "sewercode",
   buildingCode: "buildingcode",
   saveSewerData: "save-sewerconnection",
+  containments: "containments",
   logout: "logout",
 
   //LanguageTranslation

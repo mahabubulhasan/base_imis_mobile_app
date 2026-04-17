@@ -10,6 +10,7 @@ import { defaultImage, URLS } from "../core/constants/urls";
 import { getCurrentLocation } from "../helpers/location";
 import { askLocationPermission } from "../helpers/permissions";
 import {
+  containmentsAPI,
   driversAPI,
   emptiersAPI,
   treatmentPlantsAPI,
@@ -57,6 +58,7 @@ const useEmptying = (application) => {
   const [vacutugs, setVacutugs] = useState([]);
   const [treatmentPlants, setTreatmentPlants] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [containments, setContainments] = useState([]);
 
   const dispatch = useDispatch();
   const navigation = useNavigation();
@@ -64,6 +66,41 @@ const useEmptying = (application) => {
   // const {token} = useSelector(state => state.auth);
 
   // console.log('token', token);
+
+  const fetchContainments = (bin) => {
+    containmentsAPI(bin)
+      .then((res) => {
+        const { success, data } = res.data;
+
+        if (success) {
+          setContainments(data?.containments ?? []);
+        }
+      })
+      .catch((e) => {
+        if (e.response.status === 401) {
+          Alert.alert(getLabel("401"), getLabel("Please log in again."), [
+            {
+              text: getLabel("OK"),
+            },
+          ]);
+          dispatch(resetToken());
+          return;
+        }
+        if (e.response.status === 500) {
+          Alert.alert(
+            getLabel("500"),
+            getLabel(
+              "Something is wrong, please try again or at a later time."
+            ),
+            [
+              {
+                text: getLabel("OK"),
+              },
+            ]
+          );
+        }
+      });
+  };
 
   const fetchDrivers = () => {
     driversAPI()
@@ -547,12 +584,14 @@ const useEmptying = (application) => {
     treatmentPlants,
     vacutugs,
     vehicles,
+    containments,
     fetchVacugtugs,
     fetchTreatmentPlants,
     getEmptiers,
     fetchDrivers,
     fetchVehicles,
     fetchUserLocation,
+    fetchContainments,
   };
 };
 
