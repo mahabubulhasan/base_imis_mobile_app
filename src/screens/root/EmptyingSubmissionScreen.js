@@ -80,7 +80,6 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
     no_of_trips,
     place_of_disposal,
     receipt_image,
-    receipt_number,
     start_time,
     total_cost,
     vacutug_id,
@@ -650,16 +649,6 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
               setFieldValue("end_time", date);
             }}
           />
-
-          <TextInput
-            label={contentsLabel?.["Receipt Number"] || "Receipt Number"}
-            value={receipt_number}
-            error={errors.receipt_number}
-            onChangeText={handleChange("receipt_number")}
-          />
-          {errors.receipt_number && (
-            <HelperText type="error">{errors.receipt_number}</HelperText>
-          )}
 
           <TextInput
             label={contentsLabel?.["Total Cost"] || "Total Cost"}

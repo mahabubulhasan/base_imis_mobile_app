@@ -35,7 +35,6 @@ const useEmptying = (application) => {
     start_time: new Date(),
     end_time: new Date(new Date().getTime() + 60000),
     no_of_trips: "",
-    receipt_number: "",
     total_cost: "",
     application_id: application?.id,
     house_image: "",
@@ -386,11 +385,6 @@ const useEmptying = (application) => {
           contentsLabel?.["The number of trips is required."] ||
           "The number of trips is required.";
       }
-      if (!values.receipt_number) {
-        errors.receipt_number =
-          contentsLabel?.["The Receipt Number is required."] ||
-          "The Receipt Number is required.";
-      }
       if (!values.total_cost) {
         errors.total_cost =
           contentsLabel?.["The Total Cost is required."] ||
@@ -451,9 +445,6 @@ const useEmptying = (application) => {
 
       formdata.append("no_of_trips", values.no_of_trips);
       // formdata.append('no_of_trips', 1);
-
-      formdata.append("receipt_number", values.receipt_number);
-      // formdata.append('receipt_number', 12111);
 
       formdata.append("total_cost", values.total_cost);
       // formdata.append('total_cost', 55);
