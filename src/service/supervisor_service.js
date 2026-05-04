@@ -7,6 +7,9 @@ export const emptyingService = async () => {
 export const pendingApplications = async () => {
   return await client.get(URLS.peindingApplicatoins);
 }
+export const sludgeCollectionApplications = async () => {
+  return await client.get(URLS.sludgeCollectionApplications);
+};
 export const assessmentService = async () => {
   return await client.get(URLS.assessment);
 };

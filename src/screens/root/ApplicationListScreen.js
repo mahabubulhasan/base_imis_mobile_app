@@ -16,7 +16,8 @@ import { ROUTES } from "../../core/constants/routes";
 import {
   assessmentService,
   emptyingService,
-  pendingApplications
+  pendingApplications,
+  sludgeCollectionApplications,
 } from "../../service/supervisor_service";
 import { useDispatch, useSelector } from "react-redux";
 import { resetToken } from "../../store/slices/auth.slice";
@@ -31,7 +32,7 @@ import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 export default function ApplicationListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { assessment, emptying } = route.params;
+  const { assessment, emptying, sludgeCollection } = route.params;
   const dispatch = useDispatch();
 
   const getPendingApplicationsService = () => {
@@ -83,6 +84,31 @@ export default function ApplicationListScreen({ navigation, route }) {
       .finally(() => setIsLoading(false));
   };
 
+  // Sludge Collection Applications api
+  const getSludgeCollectionApplicationsService = () => {
+    setIsLoading(true);
+    sludgeCollectionApplications()
+      .then((res) => {
+        const { data, success, error } = res.data;
+        if (success) {
+          setData(data.applications);
+        } else {
+          console.log(error);
+        }
+      })
+      .catch((err) => {
+        console.log("errr", err);
+
+        if (err?.response?.status === 500) {
+          Alert.alert(
+            "500",
+            "Something is wrong, please try again or at a later time."
+          );
+        }
+      })
+      .finally(() => setIsLoading(false));
+  };
+
   //Application Assessment api
   const getApplicationAssessment = () => {
     setIsLoading(true);
@@ -108,24 +134,26 @@ export default function ApplicationListScreen({ navigation, route }) {
       .finally(() => setIsLoading(false));
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      if (emptying) {
-        // getApplicationEmptyingService();
-        getPendingApplicationsService();
-      }
-      if (assessment) {
-        getApplicationAssessment();
-      }
-    }, [navigation])
-  );
+  const fetchData = () => {
+    if (emptying) {
+      // getApplicationEmptyingService();
+      getPendingApplicationsService();
+    } else if (assessment) {
+      getApplicationAssessment();
+    } else if (sludgeCollection) {
+      getSludgeCollectionApplicationsService();
+    }
+  };
+
+  useFocusEffect(useCallback(fetchData, [navigation]));
 
   const onClick = (item) => {
     if (emptying) {
       navigation.navigate(ROUTES.empty_submission, { item });
-    }
-    if (assessment) {
+    } else if (assessment) {
       navigation.navigate(ROUTES.containment_assessment, { item });
+    } else if (sludgeCollection) {
+      navigation.navigate(ROUTES.sludge_collection, { item });
     }
   };
 
@@ -166,11 +194,7 @@ export default function ApplicationListScreen({ navigation, route }) {
               onStart={() => onClick(item)}
             />
           )}
-          onRefresh={
-            emptying
-              ? () => getPendingApplicationsService()
-              : () => getApplicationAssessment()
-          }
+          onRefresh={fetchData}
           refreshing={isLoading}
           contentContainerStyle={{ paddingHorizontal: 12 }}
         />

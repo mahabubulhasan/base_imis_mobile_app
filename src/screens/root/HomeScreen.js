@@ -184,6 +184,15 @@ const HomeScreen = ({ navigation }) => {
                 }
               />
             )}
+            {(true || permissions["save-sludge-collection"]) && ( // TODO add permission check
+              <DashboardTile
+                title={getLabel("Sludge Collection")}
+                image={IMAGES.emptying}
+                onPress={() =>
+                  navigateTo(ROUTES.application_list, { sludgeCollection: true })
+                }
+              />
+            )}
             {permissions["sewer-connection"] && (
               <DashboardTile
                 title={getLabel("Sewer Map")}

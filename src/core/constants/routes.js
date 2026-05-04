@@ -22,6 +22,7 @@ export const ROUTES = {
   containment_assessment: 'containment_assessment',
   emptying_service: 'emptying_service',
   empty_submission: 'empty_submission',
+  sludge_collection: 'sludge_collection',
   emptying_building_picker: 'emptying_building_picker',
 
   //emptying service
