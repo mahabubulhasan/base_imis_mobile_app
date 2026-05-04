@@ -5,8 +5,8 @@ export const emptyingService = async () => {
   return await client.get(URLS.emptyingService);
 };
 export const pendingApplications = async () => {
-  return await client.get(URLS.peindingApplicatoins);
-}
+  return await client.get(URLS.pendingApplications);
+};
 export const sludgeCollectionApplications = async () => {
   return await client.get(URLS.sludgeCollectionApplications);
 };
@@ -24,6 +24,10 @@ export const serviceProviderAPI = async () => {
 };
 export const saveEmptyingServiceAPI = async (data) => {
   return await client.post(URLS.saveEmptyingService, data);
+};
+
+export const saveSludgeCollectionAPI = async (data) => {
+  return await client.post(URLS.saveSludgeCollection, data);
 };
 
 export const saveAssessmentServiceAPI = async (data) => {

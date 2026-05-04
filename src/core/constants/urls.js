@@ -8,6 +8,7 @@ export const URLS = {
   emptiers: "emptiers",
   saveAssessment: "save-assessment",
   saveEmptyingService: "save-emptying",
+  saveSludgeCollection: "save-sludge-collection",
   treatmentPlants: "treatment-plants",
   serviceProviders: "service-providers",
   vacutugTypes: "vacutugs",

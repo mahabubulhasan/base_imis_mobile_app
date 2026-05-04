@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { Button, HelperText, TextInput } from "react-native-paper";
 import { useSelector } from "react-redux";
 import { Header } from "../../components/headers";
+import { saveSludgeCollectionAPI } from "../../service/supervisor_service";
 
 const SludgeCollectionScreen = ({ route, navigation }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
@@ -30,6 +31,7 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
   const [exitTimeOpen, setExitTimeOpen] = useState(false);
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formattedDate = useMemo(
     () => (date ? dayjs(date).format("MM/DD/YYYY") : ""),
@@ -90,19 +92,50 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
     return Object.keys(validationErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
 
-    Alert.alert(
-      getLabel("Success"),
-      getLabel("Sludge collection details saved successfully."),
-      [
-        {
-          text: getLabel("OK"),
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        application_id: item?.id,
+        date: dayjs(date).format("YYYY-MM-DD"),
+        no_of_trips: Number(noOfTrips),
+        entry_time: dayjs(entryTime).format("HH:mm"),
+        exit_time: dayjs(exitTime).format("HH:mm"),
+      };
+
+      const res = await saveSludgeCollectionAPI(payload);
+      const { success, status, error, message } = res?.data || {};
+
+      if (success || status) {
+        Alert.alert(
+          getLabel("Success"),
+          getLabel("Sludge collection details saved successfully."),
+          [
+            {
+              text: getLabel("OK"),
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          getLabel("Error"),
+          message ||
+            error ||
+            getLabel("Failed to save sludge collection details. Please try again.")
+        );
+      }
+    } catch (err) {
+      Alert.alert(
+        getLabel("Error"),
+        getLabel("Failed to save sludge collection details. Please try again.")
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -211,6 +244,8 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
           mode="contained"
           style={styles.submitButton}
           contentStyle={styles.submitButtonContent}
+          loading={isSubmitting}
+          disabled={isSubmitting}
           onPress={handleSubmit}
         >
           {getLabel("Submit")}
@@ -240,8 +275,12 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
         onConfirm={(selectedTime) => {
           setEntryTimeOpen(false);
           setEntryTime(selectedTime);
+          setExitTime(dayjs(selectedTime).add(30, "minute").toDate());
           if (errors.entryTime) {
             setErrors((prev) => ({ ...prev, entryTime: undefined }));
+          }
+          if (errors.exitTime) {
+            setErrors((prev) => ({ ...prev, exitTime: undefined }));
           }
         }}
         onCancel={() => setEntryTimeOpen(false)}
