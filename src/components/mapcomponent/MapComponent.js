@@ -7,6 +7,9 @@ export default function MapComponent({
   handleMarkerPress,
   children,
   markerdrag,
+  mapRef,
+  onRegionChangeComplete,
+  onMapLayout,
 }) {
   const [location, setLocation] = useState();
   const { mapType } = useSelector((state) => state.map);
@@ -17,24 +20,30 @@ export default function MapComponent({
         if (!!coords) {
           setLocation(coords);
         }
-        // console.log('LocationResponse', coords);
       } catch (error) {}
     };
     fetchLocation();
   }, []);
-  return (
-    <MapView
-      style={styles.map}
-      region={{
+  const initialRegion = location
+    ? {
         longitude: location?.longitude,
         latitude: location?.latitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      }}
-      cameraZoomRange={{ minCenterCoordinateDistance: 0 }}
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }
+    : undefined;
+
+  return (
+    <MapView
+      ref={mapRef}
+      style={styles.map}
+      initialRegion={initialRegion}
+      maxZoomLevel={30}
       poiClickEnabled={false}
       onPress={handleMarkerPress}
       onLongPress={handleMarkerPress}
+      onRegionChangeComplete={onRegionChangeComplete}
+      onLayout={onMapLayout}
       provider={PROVIDER_GOOGLE}
       showsUserLocation
       zoomControlEnabled

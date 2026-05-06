@@ -2,21 +2,27 @@ import { FAB, Text } from "react-native-paper";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Alert,
-  Dimensions,
   Image,
   Platform,
   StyleSheet,
   View,
 } from "react-native";
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { Marker, Polygon, WMSTile } from "react-native-maps";
 import IonIcon from "react-native-vector-icons/Ionicons";
 import { getDistance } from "geolib";
 
 import { COLORS } from "../../core/theme";
+import { ROUTES } from "../../core/constants/routes";
+import colors from "../../core/theme/colors";
 
 import {
-  resetBuildingCoords,
   addBuildingCoordsData,
 } from "../../store/slices/map.slice";
 import { getCurrentLocation } from "../../helpers/location";
@@ -24,7 +30,6 @@ import { askStoragePermission } from "../../helpers/permissions";
 
 import MapInfoButton from "../../components/buildings_map/MapInfoButton";
 import MapInfoModal from "../../components/buildings_map/MapInfoModal";
-import SaveDataModal from "../../components/buildings_map/SaveDataModal";
 import {
   getBuildingWmslink,
   getRoadWmsLink,
@@ -36,18 +41,20 @@ import MapComponent from "../../components/mapcomponent/MapComponent";
 import { usePermissionContext } from "../../hooks/PermissionContext";
 import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
+import { isPointInPolygon } from "../../helpers/geo";
+import { getWmsFeatureInfo } from "../../service/wms_feature_info";
 
-const BuildingMapScreen = () => {
+const BuildingMapScreen = ({ navigation }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const { permissionStatus, locationEnabled, requestPermissions } =
     usePermissionContext();
-  const { buildingCoords } = useSelector((state) => state.map);
+  const { buildingCoords, buildingsData } = useSelector((state) => state.map);
   const dispatch = useDispatch();
-  // INITIAL_LOCATION
   const [location, setLocation] = useState();
-  const [isInfoModalVisible, setisInfoModalVisible] = useState(false);
-  const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
   const [buildingCoordsState, setBuildingCoordsState] = useState([]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [savedCoords, setSavedCoords] = useState([]);
 
   const [showWmsLink, setShowWmsLink] = useState(true);
   const [roadWms, setRoadWms] = useState(true);
@@ -58,18 +65,23 @@ const BuildingMapScreen = () => {
   const [wardWmsLink, setWardWmsLink] = useState("");
 
   const [showWmsDialog, setShowWmsDialog] = useState(false);
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+
+  const [selectedBuildingIndex, setSelectedBuildingIndex] = useState(null);
+  const [selectedBuildingSource, setSelectedBuildingSource] = useState(null);
+  const [mapSizePx, setMapSizePx] = useState(null);
+  const [mapRegion, setMapRegion] = useState(null);
+  const mapRef = useRef(null);
 
   const fetchLocation = useCallback(async () => {
     try {
-      const response = await getCurrentLocation(true); // Fetch location
+      const response = await getCurrentLocation(true);
       if (response && response.coords) {
-        setLocation(response.coords); // Set location state if available
+        setLocation(response.coords);
       } else {
         throw new Error("No coordinates found");
       }
     } catch (error) {
-      console.log("Error while fetching location:", error);
-
       if (error.code === 1) {
         await requestPermissions();
       } else if (error.code === 2) {
@@ -89,6 +101,7 @@ const BuildingMapScreen = () => {
   useEffect(() => {
     if (!!buildingCoords) {
       setBuildingCoordsState(buildingCoords);
+      setSavedCoords(buildingCoords);
     }
   }, [buildingCoords]);
 
@@ -104,13 +117,16 @@ const BuildingMapScreen = () => {
   const getWmsLink = () => {
     getBuildingWmslink()
       .then((response) => {
+        console.log("[WMS][building] raw response", response?.data);
+        console.log("[WMS][building] baseUrl", response?.data?.baseUrl);
+        console.log("[WMS][building] path", response?.data?.data?.buildings);
+        console.log("[WMS][building] final", response?.data?.baseUrl + response?.data?.data?.buildings);
         const { data } = response.data;
 
         setWmslink(response.data.baseUrl + data.buildings);
       })
       .catch((err) => {
-        console.log("Error!!", err);
-
+        console.log("[WMS][building] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -123,11 +139,15 @@ const BuildingMapScreen = () => {
   const roadLink = () => {
     getRoadWmsLink()
       .then((response) => {
+        console.log("[WMS][building] raw response", response?.data);
+        console.log("[WMS][building] baseUrl", response?.data?.baseUrl);
+        console.log("[WMS][building] path", response?.data?.data?.buildings);
+        console.log("[WMS][building] final", response?.data?.baseUrl + response?.data?.data?.buildings);
         const { data } = response.data;
         setRoadWmsLink(response.data.baseUrl + data.roads);
       })
       .catch((err) => {
-        console.log("Error", err);
+        console.log("[WMS][road] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -145,7 +165,7 @@ const BuildingMapScreen = () => {
         setWardWmsLink(response.data.baseUrl + data.wards);
       })
       .catch((err) => {
-        console.log("error", err);
+        console.log("[WMS][ward] error", err);
         if (err?.response?.status === 500) {
           Alert.alert(
             "500",
@@ -163,6 +183,53 @@ const BuildingMapScreen = () => {
       setBuildingCoordsState([...buildingCoordsState, { latitude, longitude }]);
     }
     markerPressedRef.current = false;
+  };
+
+  const selectLocalBuildingByTap = (coordinate) => {
+    if (!buildingsData?.length) return false;
+
+    const foundIndex = buildingsData.findIndex(
+      (b) => !!b?.coords?.length && isPointInPolygon(coordinate, b.coords)
+    );
+
+    if (foundIndex >= 0) {
+      onSelectLocalBuilding(foundIndex);
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleMapPress = (event) => {
+    if (isEditing) {
+      handlePressOnMap(event);
+      return;
+    }
+
+    const coordinate = event?.nativeEvent?.coordinate;
+    if (!coordinate) return;
+
+    const foundLocal = selectLocalBuildingByTap(coordinate);
+    if (foundLocal) return;
+
+    void (async () => {
+      try {
+        if (!wmslinks || !mapRef.current || !mapSizePx || !mapRegion) {
+          return;
+        }
+        const pointPx = await mapRef.current.pointForCoordinate(coordinate);
+        const feature = await getWmsFeatureInfo({
+          wmsTileTemplate: wmslinks,
+          coordinate,
+          region: mapRegion,
+          mapSizePx,
+          pointPx,
+        });
+        if (feature) {
+          onSelectWmsBuilding(feature);
+        }
+      } catch {}
+    })();
   };
 
   // const renderMarkers = (coordinate, index) => {
@@ -234,16 +301,6 @@ const BuildingMapScreen = () => {
     );
   };
 
-  const showSaveDataModal = () => {
-    setisInfoModalVisible(false);
-    setIsSaveModalVisible(true);
-  };
-
-  const closeVisibleModals = () => {
-    dispatch(resetBuildingCoords());
-    setIsSaveModalVisible(false);
-    setisInfoModalVisible(false);
-  };
   const getMidpoint = (point1, point2) => ({
     latitude: (point1.latitude + point2.latitude) / 2,
     longitude: (point1.longitude + point2.longitude) / 2,
@@ -258,12 +315,74 @@ const BuildingMapScreen = () => {
     setDragging(true);
   };
 
-  // const handleMarkerDragEnd = (index, event) => {
-  //   setDragging(false);
-  //   // handleMarkerDrag(index, event);
-  // };
-
   const getLabel = (key) => contentsLabel?.[key] || key;
+
+  const onSelectLocalBuilding = (index) => {
+    if (isEditing) return;
+    setSelectedBuildingIndex(index);
+    setSelectedBuildingSource("local");
+    navigation.navigate(ROUTES.building_edit, { source: "local", index });
+  };
+
+  const onSelectWmsBuilding = (feature) => {
+    if (isEditing) return;
+    const bin = feature?.properties?.bin;
+    if (bin == null || String(bin).trim() === "") {
+      Alert.alert(
+        getLabel("Error"),
+        getLabel("Building identifier (BIN) is missing."),
+        [{ text: getLabel("OK") }]
+      );
+      return;
+    }
+    setSelectedBuildingIndex(null);
+    setSelectedBuildingSource("wms");
+    navigation.navigate(ROUTES.building_edit, { source: "wms", bin });
+  };
+
+  const haveUnsavedChanges = useMemo(
+    () => JSON.stringify(savedCoords) !== JSON.stringify(buildingCoordsState),
+    [savedCoords, buildingCoordsState]
+  );
+
+  const onPressEditToggle = () => {
+    if (!isEditing) {
+      setIsEditing(true);
+      setBuildingCoordsState(savedCoords || []);
+    } else if (haveUnsavedChanges) {
+      Alert.alert(
+        getLabel("DISCARD_CHANGES"),
+        getLabel(
+          "Are you sure you want to discard your unsaved polygon changes?"
+        ),
+        [
+          {
+            text: getLabel("YES"),
+            onPress: () => {
+              setBuildingCoordsState(savedCoords || []);
+              setIsEditing(false);
+            },
+          },
+          {
+            text: getLabel("CANCEL"),
+            style: "cancel",
+          },
+        ]
+      );
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  const openInfoModal = () => {
+    dispatch(addBuildingCoordsData(buildingCoordsState));
+    setIsInfoModalVisible(true);
+  };
+
+  const onPressInfoNext = () => {
+    setIsInfoModalVisible(false);
+    navigation.navigate(ROUTES.create_building_after_draw);
+  };
 
   return (
     <View style={styles.container}>
@@ -275,20 +394,30 @@ const BuildingMapScreen = () => {
       {locationEnabled && permissionStatus && location ? (
         <>
           <MapComponent
-            handleMarkerPress={handlePressOnMap}
+            handleMarkerPress={handleMapPress}
             markerdrag={!dragging}
+            mapRef={mapRef}
+            onRegionChangeComplete={setMapRegion}
+            onMapLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setMapSizePx({ width, height });
+            }}
           >
             {buildingCoordsState.map((marker, index) => (
               <Marker
                 zIndex={marker.zIndex}
-                draggable
+                draggable={isEditing}
                 poiClickEnabled={false}
-                onDragStart={handleMarkerDragStart}
-                onDragEnd={(event) => {
-                  setDragging(false);
-                  onDragEnd(index, event);
-                }}
-                onPress={() => handlePressOnMarker(index)}
+                onDragStart={isEditing ? handleMarkerDragStart : undefined}
+                onDragEnd={
+                  isEditing
+                    ? (event) => {
+                        setDragging(false);
+                        onDragEnd(index, event);
+                      }
+                    : undefined
+                }
+                onPress={isEditing ? () => handlePressOnMarker(index) : undefined}
                 coordinate={{
                   latitude: marker.latitude,
                   longitude: marker.longitude,
@@ -364,6 +493,7 @@ const BuildingMapScreen = () => {
               </>
             )}
             {showWmsLink && wmslinks && (
+              'building' &&
               <WMSTile
                 urlTemplate={wmslinks}
                 zIndex={1}
@@ -387,13 +517,34 @@ const BuildingMapScreen = () => {
                 tileSize={512}
               />
             )}
+
+            {!!buildingsData?.length &&
+              buildingsData.map((item, index) => {
+                const isSelected =
+                  selectedBuildingSource === "local" &&
+                  selectedBuildingIndex === index;
+
+                if (!item?.coords?.length) return null;
+
+                return (
+                  <Polygon
+                    key={`local-building-${index}-${item?.temp_building_code ?? "na"}`}
+                    coordinates={item.coords}
+                    tappable
+                    strokeWidth={isSelected ? 3 : 2}
+                    strokeColor={isSelected ? COLORS.error : COLORS.primary}
+                    fillColor={
+                      isSelected ? "rgba(244,67,54,0.18)" : "rgba(45,87,250,0.10)"
+                    }
+                    zIndex={20}
+                    onPress={() => onSelectLocalBuilding(index)}
+                  />
+                );
+              })}
           </MapComponent>
 
           <MapInfoButton
-            onPress={() => {
-              setisInfoModalVisible(true),
-                dispatch(addBuildingCoordsData(buildingCoordsState));
-            }}
+            onPress={openInfoModal}
             buildingCoords={buildingCoordsState}
           />
 
@@ -404,6 +555,18 @@ const BuildingMapScreen = () => {
             onPress={() => {
               setShowWmsDialog(true);
             }}
+          />
+          <FAB
+            animated={false}
+            style={styles.editFab}
+            icon={() => (
+              <IonIcon
+                name={isEditing ? "close" : "add"}
+                size={24}
+                color="white"
+              />
+            )}
+            onPress={onPressEditToggle}
           />
           <WmsView
             visible={showWmsDialog}
@@ -416,18 +579,13 @@ const BuildingMapScreen = () => {
             isRoadWmsOn={roadWms}
             isWardWmsOn={wardWms}
           />
-
           <MapInfoModal
             buildingCoords={buildingCoordsState}
             visible={isInfoModalVisible}
-            onClose={setisInfoModalVisible}
-            onNext={showSaveDataModal}
+            onClose={setIsInfoModalVisible}
+            onNext={onPressInfoNext}
           />
-          <SaveDataModal
-            visible={isSaveModalVisible}
-            onClose={setIsSaveModalVisible}
-            onDataSaved={closeVisibleModals}
-          />
+
         </>
       ) : (
         <ErrorMessage message={getLabel("Error: Location Permission Denied")} />
@@ -455,8 +613,14 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
+    bottom: 190,
+    left: 15,
+    backgroundColor: COLORS.primary,
+  },
+  editFab: {
+    position: "absolute",
     bottom: 110,
-    marginLeft: 15,
+    left: 15,
     backgroundColor: COLORS.primary,
   },
 });
