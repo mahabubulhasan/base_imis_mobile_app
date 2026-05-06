@@ -4,7 +4,6 @@ import { Provider as StoreProvider } from "react-redux";
 import { Provider as PaperProvider } from "react-native-paper";
 import { PersistGate } from "redux-persist/integration/react";
 import { persistStore } from "redux-persist";
-
 import store from "./src/store";
 import theme from "./src/core/theme";
 

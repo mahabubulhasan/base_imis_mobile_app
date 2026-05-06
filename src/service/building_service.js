@@ -1,8 +1,189 @@
 import client from '../axios';
 import {URLS} from '../core/constants/urls';
+import mime from 'mime';
+import {
+  getVisibleConditionalFields,
+  normalizeBoolean01,
+} from '../helpers/buildingDraft';
+
+export const mapToOptions = obj =>
+  Object.entries(obj || {}).map(([value, label]) => ({
+    value: String(value),
+    label: String(label),
+  }));
+
+export const getCtptOptionsFromCreateData = data =>
+  mapToOptions(data?.capitalizedctpt || data?.ctpt);
+
+export const getBuildingCreateData = async () => {
+  return client.get(`${URLS.buildingInfoBuildings}/create-data`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+};
 
 export const uploadBuildingData = async data => {
   return await client.post(URLS.uploadBuildingData, data);
+};
+
+const RESERVED_DRAFT_KEYS = new Set([
+  'coords',
+  'path',
+  'kml_file_name',
+  'house_image',
+  'created_date',
+  'upload_status',
+  'last_error',
+  'updated_at',
+]);
+
+const BASE_FIELD_KEYS = [
+  'temp_building_code',
+  'tax_code',
+  'collected_date',
+  'ward',
+  'road_code',
+  'house_number',
+  'structure_type_id',
+  'construction_year',
+  'floor_count',
+  'functional_use_id',
+  'use_category_id',
+  'water_source_id',
+  'sanitation_system_id',
+  'sewer_code',
+  'drain_code',
+  'toilet_status',
+  'toilet_count',
+  'defecation_place',
+  'ctpt_name',
+  'build_contain',
+  'building_associated_to',
+  'watersupply_pipe_code',
+  'lic_id',
+  'main_building',
+  'lic_status',
+];
+
+export const buildSaveBuildingFormData = draft => {
+  const data = new FormData();
+  const visible = getVisibleConditionalFields(draft);
+  const includeKey = key => {
+    if (key === 'building_associated_to') return visible.building_associated_to;
+    if (key === 'lic_id') return visible.lic_id;
+    if (key === 'watersupply_pipe_code') return visible.watersupply_pipe_code;
+    if (key === 'toilet_count') return visible.toilet_count;
+    if (key === 'sanitation_system_id') return visible.sanitation_system_id;
+    if (key === 'defecation_place') return visible.defecation_place;
+    if (key === 'ctpt_name') return visible.ctpt_name;
+    if (key === 'build_contain') return visible.build_contain;
+    if (key === 'use_category_id') return visible.use_category_id;
+    return true;
+  };
+
+  BASE_FIELD_KEYS.forEach(key => {
+    if (!includeKey(key)) return;
+    const value = draft[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      data.append(
+        key,
+        key === 'toilet_status' || key === 'main_building' || key === 'lic_status'
+          ? normalizeBoolean01(value, '0')
+          : String(value),
+      );
+    }
+  });
+
+  if (draft.path) {
+    const kmlUri = `file://${draft.path}`;
+    data.append('kml', {
+      uri: kmlUri,
+      type: mime.getType(kmlUri) || 'application/vnd.google-earth.kml+xml',
+      name: draft.kml_file_name || 'building.kml',
+    });
+  }
+
+  if (draft.house_image?.uri) {
+    data.append('house_image', {
+      uri: draft.house_image.uri,
+      type: draft.house_image.type || 'image/jpeg',
+      name: draft.house_image.name || 'house.jpg',
+    });
+  }
+
+  Object.keys(draft).forEach(key => {
+    if (RESERVED_DRAFT_KEYS.has(key) || BASE_FIELD_KEYS.includes(key)) {
+      return;
+    }
+    const value = draft[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      data.append(key, String(value));
+    }
+  });
+
+  return data;
+};
+
+export const createBuildingInfo = async (bin, fields) => {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  }
+  const path = `${URLS.buildingInfoBuildings}/${encodeURIComponent(String(bin))}`;
+  return client.post(path, formData, {
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const getBuildingEditData = async (bin) => {
+  const path = `${URLS.buildingInfoEditData}/${encodeURIComponent(String(bin))}/edit-data`;
+  return client.get(path, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+};
+
+const shouldAppendValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return true;
+};
+
+const appendFormDataValue = (formData, key, value) => {
+  if (!shouldAppendValue(value)) return;
+
+  // React Native file object: { uri, name, type }
+  if (typeof value === 'object' && value.uri) {
+    formData.append(key, value);
+    return;
+  }
+
+  formData.append(key, String(value));
+};
+
+export const updateBuildingInfo = async (bin, fields) => {
+  const formData = new FormData();
+
+  if (fields && typeof fields === 'object') {
+    for (const [key, value] of Object.entries(fields)) {
+      appendFormDataValue(formData, key, value);
+    }
+  }
+
+  const path = `${URLS.buildingInfoUpdate}/${encodeURIComponent(String(bin))}`;
+  return client.post(path, formData, {
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
 
 export const uploadContainmentData = async data => {

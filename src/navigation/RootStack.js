@@ -31,6 +31,8 @@ import SewageDataScreen from "../screens/root/SewageDataScreen";
 import BuildingMapDetials from "../screens/root/BuildingMapDetails";
 import EmptyingSubmissionScreen2 from "../screens/root/EmptyingSubmissionScreen2";
 import SludgeCollectionScreen from "../screens/root/SludgeCollectionScreen";
+import BuildingEditScreen from "../screens/root/BuildingEditScreen";
+import CreateBuildingAfterDrawScreen from "../screens/root/CreateBuildingAfterDrawScreen";
 
 const { Screen, Navigator } = createNativeStackNavigator();
 
@@ -101,6 +103,22 @@ const RootStack = ({ navigation }) => {
           }}
           name={ROUTES.building_map_details}
           component={BuildingMapDetials}
+        />
+        <Screen
+          options={{
+            title: "Edit Building",
+            headerShown: false,
+          }}
+          name={ROUTES.building_edit}
+          component={BuildingEditScreen}
+        />
+        <Screen
+          options={{
+            title: "Create Building",
+            headerShown: false,
+          }}
+          name={ROUTES.create_building_after_draw}
+          component={CreateBuildingAfterDrawScreen}
         />
         <Screen
           options={{
