@@ -219,8 +219,8 @@ const HomeScreen = ({ navigation }) => {
               <TouchableWithoutFeedback onPress={openInnovativeSolution}>
                 <>
                   <Text style={styles.bottomLink} variant="labelLarge">
-                    ISPL
-                  </Text>{" "}
+                    Laskhmipur Municipality
+                  </Text>{"\n"}
                   &{" "}
                   <Text style={styles.bottomLink} variant="labelLarge">
                     GWSC-AIT
