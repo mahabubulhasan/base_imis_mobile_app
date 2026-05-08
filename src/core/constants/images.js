@@ -8,6 +8,6 @@ export const IMAGES = {
   emptying: require('../../../assets/images/emptying.png'),
   land: require('../../../assets/images/land_icon.png'),
   logo2: require('../../../assets/images/logo2.png'),
-  fulllogo: require('../../../assets/images/imiswhitebg.png'),
+  fulllogo: require('../../../assets/images/logo-lakshmipur.png'),
   errorLogo: require('../../../assets/images/error.png'),
 };
