@@ -15,8 +15,8 @@ import {askStoragePermission} from "../../helpers/permissions";
 import {updateBuildingData} from "../../store/slices/map.slice";
 import {getBuildingEditData, updateBuildingInfo} from "../../service/building_service";
 
-const MAX_KML_FILE_SIZE = 1.5e6;
 const MAX_HOUSE_IMAGE_FILE_SIZE = 5e6;
+const INITIAL_OPTION_LIMIT = 20;
 
 const pickFirst = (source, keys, fallback = "") => {
   for (const key of keys) {
@@ -213,7 +213,6 @@ const BuildingEditScreen = ({navigation, route}) => {
     desludging_vehicle_accessible: "",
     sewer_code: "",
     drain_code: "",
-    geomFile: null,
     houseImageFile: null,
   });
 
@@ -312,7 +311,13 @@ const BuildingEditScreen = ({navigation, route}) => {
   const openSelect = async (title, list, current, onSelected) => {
     const selected = list.find(i => String(i.value) === String(current));
     const payload = await SheetManager.show(kSheets.selectionSheet, {
-      payload: {title, options: list, selectedOption: selected},
+      payload: {
+        title,
+        options: list,
+        selectedOption: selected,
+        initialVisibleLimit: INITIAL_OPTION_LIMIT,
+        searchable: true,
+      },
     });
     if (payload?.value !== undefined) onSelected(String(payload.value));
   };
@@ -366,9 +371,7 @@ const BuildingEditScreen = ({navigation, route}) => {
     try {
       setSaving(true);
       const payload = {...values};
-      delete payload.geomFile;
       delete payload.houseImageFile;
-      if (values.geomFile) payload.geom = values.geomFile;
       if (values.houseImageFile) payload.house_image = values.houseImageFile;
 
       await updateBuildingInfo(bin, payload);
@@ -416,17 +419,11 @@ const BuildingEditScreen = ({navigation, route}) => {
     }
   };
 
-  const pickFile = async kind => {
+  const pickHouseImage = async () => {
     try {
-      const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.allFiles]});
-      if (kind === "geom") {
-        if (!String(file?.name || "").toLowerCase().endsWith(".kml")) return Alert.alert("Invalid file", "Select a .kml file.");
-        if (file?.size && file.size > MAX_KML_FILE_SIZE) return Alert.alert("Invalid file", "KML should be <= 1.5MB.");
-        setFieldValue("geomFile", file);
-      } else {
-        if (file?.size && file.size > MAX_HOUSE_IMAGE_FILE_SIZE) return Alert.alert("Invalid file", "Image should be <= 5MB.");
-        setFieldValue("houseImageFile", file);
-      }
+      const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.images]});
+      if (file?.size && file.size > MAX_HOUSE_IMAGE_FILE_SIZE) return Alert.alert("Invalid file", "Image should be <= 5MB.");
+      setFieldValue("houseImageFile", file);
     } catch {}
   };
 
@@ -544,12 +541,8 @@ const BuildingEditScreen = ({navigation, route}) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Building Footprint (XML, FM)</Text>
-          <Button mode="outlined" onPress={() => pickFile("geom")}>Pick geom (.kml)</Button>
-          {!!values.geomFile && <Text style={styles.fileMeta}>{values.geomFile?.name || "geom.kml"}</Text>}
-          <Text style={styles.helpText}>KML file size should not be more than 1.5MB</Text>
           <Text style={styles.sectionTitle}>House Image</Text>
-          <Button mode="outlined" onPress={() => pickFile("house")}>Pick house image</Button>
+          <Button mode="outlined" onPress={pickHouseImage}>Pick house image</Button>
           {!!values.houseImageFile && <Text style={styles.fileMeta}>{values.houseImageFile?.name || "house.jpg"}</Text>}
           <Text style={styles.helpText}>Images (JPG, PNG) should not be more than 5MB</Text>
         </View>

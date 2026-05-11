@@ -139,10 +139,6 @@ const BuildingMapScreen = ({ navigation }) => {
   const roadLink = () => {
     getRoadWmsLink()
       .then((response) => {
-        console.log("[WMS][building] raw response", response?.data);
-        console.log("[WMS][building] baseUrl", response?.data?.baseUrl);
-        console.log("[WMS][building] path", response?.data?.data?.buildings);
-        console.log("[WMS][building] final", response?.data?.baseUrl + response?.data?.data?.buildings);
         const { data } = response.data;
         setRoadWmsLink(response.data.baseUrl + data.roads);
       })
