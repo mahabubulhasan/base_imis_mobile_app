@@ -15,6 +15,7 @@ import {askStoragePermission} from "../../helpers/permissions";
 import {updateBuildingData} from "../../store/slices/map.slice";
 import {getBuildingEditData, updateBuildingInfo} from "../../service/building_service";
 
+/** CMS keys omit trailing *; UI appends it for required fields via reqLabel(). */
 const MAX_HOUSE_IMAGE_FILE_SIZE = 5e6;
 const INITIAL_OPTION_LIMIT = 20;
 
@@ -151,6 +152,9 @@ const normalizeBuildingValues = raw => ({
 const BuildingEditScreen = ({navigation, route}) => {
   const dispatch = useDispatch();
   const {buildingsData} = useSelector(state => state.map);
+  const {contentsLabel} = useSelector(state => state.auth);
+  const getLabel = useCallback(key => contentsLabel?.[key] || key, [contentsLabel]);
+  const reqLabel = useCallback(key => `${getLabel(key)} *`, [getLabel]);
 
   const source = route?.params?.source;
   const localIndex = route?.params?.index;
@@ -276,14 +280,29 @@ const BuildingEditScreen = ({navigation, route}) => {
         const normalized = normalizeBuildingValues(mergedRaw);
         setValues(prev => ({...prev, ...normalized}));
       } catch (e) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load edit data.");
+        Alert.alert(getLabel("Error"), e?.response?.data?.message || getLabel("Failed to load edit data."));
       } finally {
         setLoading(false);
       }
     })();
-  }, [bin, source]);
+  }, [bin, source, getLabel]);
 
-  const yesNoOptions = useMemo(() => [{label: "Yes", value: "1"}, {label: "No", value: "0"}], []);
+  const yesNoOptions = useMemo(
+    () => [
+      {label: getLabel("YES"), value: "1"},
+      {label: getLabel("NO"), value: "0"},
+    ],
+    [getLabel],
+  );
+
+  const genderOptions = useMemo(
+    () => [
+      {label: getLabel("Male"), value: "0"},
+      {label: getLabel("Female"), value: "1"},
+      {label: getLabel("Other"), value: "2"},
+    ],
+    [getLabel],
+  );
 
   const options = useMemo(() => {
     let usecat = {};
@@ -322,41 +341,51 @@ const BuildingEditScreen = ({navigation, route}) => {
     if (payload?.value !== undefined) onSelected(String(payload.value));
   };
 
-  const validateWms = () => {
+  const validateWms = useCallback(() => {
     const errs = {};
-    const req = (k, label, cond = true) => {
+    const req = (k, requiredMsgKey, cond = true) => {
       if (!cond) return;
-      if (!shouldHaveValue(values[k]) && values[k] !== "0") errs[k] = `${label} is required.`;
+      if (!shouldHaveValue(values[k]) && values[k] !== "0") errs[k] = getLabel(requiredMsgKey);
     };
-    req("owner_name", "Owner Name");
-    req("owner_gender", "Owner Gender");
-    req("owner_contact", "Owner Contact");
-    req("main_building", "Main Building");
-    req("ward", "Ward");
-    req("road_code", "Road Code");
-    req("tax_code", "Tax Code");
-    req("structure_type_id", "Structure Type");
-    req("construction_year", "Construction Year");
-    req("floor_count", "Floor Count");
-    req("functional_use_id", "Functional Use");
-    req("use_category_id", "Use Category");
-    req("household_served", "Household Served");
-    req("population_served", "Population Served");
-    req("low_income_hh", "Low Income Household");
-    req("lic_status", "LIC Status");
-    req("water_source_id", "Water Source");
-    req("toilet_status", "Toilet Status");
-    req("building_associated_to", "Building associated to", showAssociatedBuilding);
-    req("lic_id", "LIC ID", showLicId);
-    req("water_customer_id", "Water Customer ID", showWaterPipe);
-    req("watersupply_pipe_code", "Water supply pipe code", showWaterPipe);
-    req("distance_from_well", "Distance from well", showWellDistance);
-    req("toilet_count", "Toilet count", showToiletConnection);
-    req("sanitation_system_id", "Sanitation System", showToiletConnection);
-    req("defecation_place", "Defecation Place", showDefecation);
-    req("ctpt_name", "CTPT Name", showCtpt);
+    req("owner_name", "Owner Name is required.");
+    req("owner_gender", "Owner Gender is required.");
+    req("owner_contact", "Owner Contact is required.");
+    req("main_building", "Main Building is required.");
+    req("ward", "Ward is required.");
+    req("road_code", "Road Code is required.");
+    req("tax_code", "Tax Code is required.");
+    req("structure_type_id", "Structure Type is required.");
+    req("construction_year", "Construction Year (YYYY-MM-DD) is required.");
+    req("floor_count", "Floor Count is required.");
+    req("functional_use_id", "Functional Use is required.");
+    req("use_category_id", "Use Category is required.");
+    req("household_served", "Household Served is required.");
+    req("population_served", "Population Served is required.");
+    req("low_income_hh", "Low Income Household is required.");
+    req("lic_status", "LIC Status is required.");
+    req("water_source_id", "Water Source is required.");
+    req("toilet_status", "Toilet Status is required.");
+    req("building_associated_to", "Building Associated To is required.", showAssociatedBuilding);
+    req("lic_id", "LIC ID is required.", showLicId);
+    req("water_customer_id", "Water Customer ID is required.", showWaterPipe);
+    req("watersupply_pipe_code", "Water supply pipe code is required.", showWaterPipe);
+    req("distance_from_well", "Distance from well is required.", showWellDistance);
+    req("toilet_count", "Toilet Count is required.", showToiletConnection);
+    req("sanitation_system_id", "Sanitation System is required.", showToiletConnection);
+    req("defecation_place", "Defecation Place is required.", showDefecation);
+    req("ctpt_name", "CTPT Name is required.", showCtpt);
     return errs;
-  };
+  }, [
+    getLabel,
+    showAssociatedBuilding,
+    showCtpt,
+    showDefecation,
+    showLicId,
+    showToiletConnection,
+    showWaterPipe,
+    showWellDistance,
+    values,
+  ]);
 
   const showError = key => (fieldErrors[key] ? <HelperText type="error">{fieldErrors[key]}</HelperText> : null);
 
@@ -376,7 +405,9 @@ const BuildingEditScreen = ({navigation, route}) => {
 
       await updateBuildingInfo(bin, payload);
       setFieldErrors({});
-      Alert.alert("Saved", "Building information updated successfully.", [{text: "OK", onPress: () => navigation.goBack()}]);
+      Alert.alert(getLabel("Saved"), getLabel("Building information updated successfully."), [
+        {text: getLabel("OK"), onPress: () => navigation.goBack()},
+      ]);
     } catch (e) {
       const apiErrors = e?.response?.data?.errors;
       if (apiErrors && typeof apiErrors === "object") {
@@ -389,7 +420,7 @@ const BuildingEditScreen = ({navigation, route}) => {
         if (first) scrollToField(first);
         return;
       }
-      Alert.alert("Error", e?.response?.data?.message || "Failed to update building.");
+      Alert.alert(getLabel("Error"), e?.response?.data?.message || getLabel("Failed to update building."));
     } finally {
       setSaving(false);
     }
@@ -397,8 +428,9 @@ const BuildingEditScreen = ({navigation, route}) => {
 
   const handleLocalSubmit = async () => {
     const item = buildingsData?.[localIndex];
-    if (!item) return Alert.alert("Error", "Local building not found.");
-    if (!localTempCode.trim() || !localTaxCode.trim()) return Alert.alert("Error", "Code and tax code are required.");
+    if (!item) return Alert.alert(getLabel("Error"), getLabel("Local building not found."));
+    if (!localTempCode.trim() || !localTaxCode.trim())
+      return Alert.alert(getLabel("Error"), getLabel("Code and tax code are required."));
 
     try {
       setSaving(true);
@@ -410,7 +442,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           try { await RNFB.fs.unlink(item.path); } catch {}
         }
         dispatch(updateBuildingData({index: localIndex, patch: {temp_building_code: localTempCode, tax_code: localTaxCode, path: newPath}}));
-        Alert.alert("Saved", "Building updated.", [{text: "OK", onPress: () => navigation.goBack()}]);
+        Alert.alert(getLabel("Saved"), getLabel("Building updated."), [{text: getLabel("OK"), onPress: () => navigation.goBack()}]);
       };
       if (Platform.constants.Release >= 13) await write();
       else askStoragePermission(write);
@@ -422,7 +454,8 @@ const BuildingEditScreen = ({navigation, route}) => {
   const pickHouseImage = async () => {
     try {
       const file = await DocumentPicker.pickSingle({type: [DocumentPicker.types.images]});
-      if (file?.size && file.size > MAX_HOUSE_IMAGE_FILE_SIZE) return Alert.alert("Invalid file", "Image should be <= 5MB.");
+      if (file?.size && file.size > MAX_HOUSE_IMAGE_FILE_SIZE)
+        return Alert.alert(getLabel("Error"), getLabel("Image size can not exceed 5 MB."));
       setFieldValue("houseImageFile", file);
     } catch {}
   };
@@ -430,8 +463,8 @@ const BuildingEditScreen = ({navigation, route}) => {
   if (loading) {
     return (
       <View style={{flex: 1}}>
-        <Header title="Edit Building" />
-        <LoadingSpinner isVisible title="Loading edit data" />
+        <Header title={getLabel("Edit Building")} />
+        <LoadingSpinner isVisible title={getLabel("Loading edit data")} />
       </View>
     );
   }
@@ -439,15 +472,17 @@ const BuildingEditScreen = ({navigation, route}) => {
   if (source === "local") {
     return (
       <View style={{flex: 1}}>
-        <Header title="Edit Building" />
+        <Header title={getLabel("Edit Building")} />
         <ScrollView style={styles.container}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Edit Building Codes</Text>
-            <TextInput label="Temporary Building Code *" value={localTempCode} onChangeText={setLocalTempCode} />
-            <TextInput label="Tax Code *" value={localTaxCode} onChangeText={setLocalTaxCode} />
+            <Text style={styles.sectionTitle}>{getLabel("Edit Building Codes")}</Text>
+            <TextInput label={reqLabel("Temp Building Code")} value={localTempCode} onChangeText={setLocalTempCode} />
+            <TextInput label={reqLabel("Tax Code")} value={localTaxCode} onChangeText={setLocalTaxCode} />
           </View>
           <View style={styles.buttonArea}>
-            <Button mode="contained" onPress={handleLocalSubmit} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+            <Button mode="contained" onPress={handleLocalSubmit} disabled={saving}>
+              {saving ? getLabel("Saving...") : getLabel("Save")}
+            </Button>
           </View>
         </ScrollView>
       </View>
@@ -456,113 +491,469 @@ const BuildingEditScreen = ({navigation, route}) => {
 
   return (
     <View style={{flex: 1}}>
-      <Header title="Edit Building" />
+      <Header title={getLabel("Edit Building")} />
       <ScrollView ref={scrollRef} style={styles.container}>
-        {!!values.house_number && <View style={styles.banner}><Text style={styles.bannerText}>House Number: {values.house_number}</Text></View>}
+        {!!values.house_number && (
+          <View style={styles.banner}>
+            <Text style={styles.bannerText}>
+              {getLabel("House Number:")} {values.house_number}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Owner Information</Text>
-          <View onLayout={registerField("owner_name")}><TextInput label="Owner Name *" value={values.owner_name} error={!!fieldErrors.owner_name} onChangeText={t => setFieldValue("owner_name", t)} />{showError("owner_name")}</View>
-          <TextInput label="Owner NID (optional)" value={values.nid} onChangeText={t => setFieldValue("nid", t)} />
-          <View onLayout={registerField("owner_gender")}><SelectionInput label="Owner Gender *" error={!!fieldErrors.owner_gender} value={getOptionLabel([{label: "Male", value: "0"}, {label: "Female", value: "1"}, {label: "Other", value: "2"}], values.owner_gender)} onPress={() => openSelect("Owner Gender", [{label: "Male", value: "0"}, {label: "Female", value: "1"}, {label: "Other", value: "2"}], values.owner_gender, v => setFieldValue("owner_gender", v))} />{showError("owner_gender")}</View>
-          <View onLayout={registerField("owner_contact")}><TextInput label="Owner Contact *" value={values.owner_contact} error={!!fieldErrors.owner_contact} keyboardType="numeric" onChangeText={t => setFieldValue("owner_contact", t)} />{showError("owner_contact")}</View>
+          <Text style={styles.sectionTitle}>{getLabel("Owner Information")}</Text>
+          <View onLayout={registerField("owner_name")}>
+            <TextInput
+              label={reqLabel("Owner Name")}
+              value={values.owner_name}
+              error={!!fieldErrors.owner_name}
+              onChangeText={t => setFieldValue("owner_name", t)}
+            />
+            {showError("owner_name")}
+          </View>
+          <TextInput label={getLabel("Owner NID")} value={values.nid} onChangeText={t => setFieldValue("nid", t)} />
+          <View onLayout={registerField("owner_gender")}>
+            <SelectionInput
+              label={reqLabel("Owner Gender")}
+              error={!!fieldErrors.owner_gender}
+              value={getOptionLabel(genderOptions, values.owner_gender)}
+              onPress={() =>
+                openSelect(getLabel("Owner Gender"), genderOptions, values.owner_gender, v => setFieldValue("owner_gender", v))
+              }
+            />
+            {showError("owner_gender")}
+          </View>
+          <View onLayout={registerField("owner_contact")}>
+            <TextInput
+              label={reqLabel("Owner Contact")}
+              value={values.owner_contact}
+              error={!!fieldErrors.owner_contact}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("owner_contact", t)}
+            />
+            {showError("owner_contact")}
+          </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Building Information</Text>
-          <View onLayout={registerField("main_building")}><SelectionInput label="Main Building *" error={!!fieldErrors.main_building} value={getOptionLabel(yesNoOptions, values.main_building)} onPress={() => openSelect("Main Building", yesNoOptions, values.main_building, v => setFieldValue("main_building", v))} />{showError("main_building")}</View>
-          {showAssociatedBuilding && <View onLayout={registerField("building_associated_to")}><TextInput label="BIN of Main Building *" value={values.building_associated_to} error={!!fieldErrors.building_associated_to} onChangeText={t => setFieldValue("building_associated_to", t)} />{showError("building_associated_to")}</View>}
-          <View onLayout={registerField("ward")}><SelectionInput label="Ward Number *" error={!!fieldErrors.ward} value={getOptionLabel(options.ward, values.ward)} onPress={() => openSelect("Ward Number", options.ward, values.ward, v => setFieldValue("ward", v))} />{showError("ward")}</View>
-          <View onLayout={registerField("road_code")}><SelectionInput label="Road Code *" error={!!fieldErrors.road_code} value={getOptionLabel(options.road, values.road_code)} onPress={() => openSelect("Road Code", options.road, values.road_code, v => setFieldValue("road_code", v))} />{showError("road_code")}</View>
-          <View onLayout={registerField("house_number")}><TextInput label="House Number" value={values.house_number} error={!!fieldErrors.house_number} onChangeText={t => setFieldValue("house_number", t)} />{showError("house_number")}</View>
-          <TextInput label="House Locality / Address" value={values.house_locality} onChangeText={t => setFieldValue("house_locality", t)} />
-          <View onLayout={registerField("tax_code")}><TextInput label="Tax Code / Holding ID *" value={values.tax_code} error={!!fieldErrors.tax_code} onChangeText={t => setFieldValue("tax_code", t)} />{showError("tax_code")}</View>
-          <View onLayout={registerField("structure_type_id")}><SelectionInput label="Structure Type *" error={!!fieldErrors.structure_type_id} value={getOptionLabel(options.structure, values.structure_type_id)} onPress={() => openSelect("Structure Type", options.structure, values.structure_type_id, v => setFieldValue("structure_type_id", v))} />{showError("structure_type_id")}</View>
-          <TextInput label="Surveyed Date" value={values.surveyed_date} onChangeText={t => setFieldValue("surveyed_date", t)} />
-          <View onLayout={registerField("construction_year")}><TextInput label="Construction Date/Year *" value={values.construction_year} error={!!fieldErrors.construction_year} onChangeText={t => setFieldValue("construction_year", t)} />{showError("construction_year")}</View>
-          <View onLayout={registerField("floor_count")}><TextInput label="Number of Floors *" value={values.floor_count} error={!!fieldErrors.floor_count} onChangeText={t => setFieldValue("floor_count", t)} />{showError("floor_count")}</View>
-          <View onLayout={registerField("functional_use_id")}><SelectionInput label="Functional Use of Building *" error={!!fieldErrors.functional_use_id} value={getOptionLabel(options.functional, values.functional_use_id)} onPress={() => openSelect("Functional Use", options.functional, values.functional_use_id, v => setFieldValue("functional_use_id", v))} />{showError("functional_use_id")}</View>
-          <View onLayout={registerField("use_category_id")}><SelectionInput label="Use Category of Building *" error={!!fieldErrors.use_category_id} value={getOptionLabel(options.useCategory, values.use_category_id)} onPress={() => openSelect("Use Category", options.useCategory, values.use_category_id, v => setFieldValue("use_category_id", v))} />{showError("use_category_id")}</View>
-          <TextInput label="Office / Business Name" value={values.office_business_name} onChangeText={t => setFieldValue("office_business_name", t)} />
+          <Text style={styles.sectionTitle}>{getLabel("Building Information")}</Text>
+          <View onLayout={registerField("main_building")}>
+            <SelectionInput
+              label={reqLabel("Main Building")}
+              error={!!fieldErrors.main_building}
+              value={getOptionLabel(yesNoOptions, values.main_building)}
+              onPress={() =>
+                openSelect(getLabel("Main Building"), yesNoOptions, values.main_building, v => setFieldValue("main_building", v))
+              }
+            />
+            {showError("main_building")}
+          </View>
+          {showAssociatedBuilding && (
+            <View onLayout={registerField("building_associated_to")}>
+              <TextInput
+                label={reqLabel("Building Associated To")}
+                value={values.building_associated_to}
+                error={!!fieldErrors.building_associated_to}
+                onChangeText={t => setFieldValue("building_associated_to", t)}
+              />
+              {showError("building_associated_to")}
+            </View>
+          )}
+          <View onLayout={registerField("ward")}>
+            <SelectionInput
+              label={reqLabel("Ward")}
+              error={!!fieldErrors.ward}
+              value={getOptionLabel(options.ward, values.ward)}
+              onPress={() => openSelect(getLabel("Ward"), options.ward, values.ward, v => setFieldValue("ward", v))}
+            />
+            {showError("ward")}
+          </View>
+          <View onLayout={registerField("road_code")}>
+            <SelectionInput
+              label={reqLabel("Road Code")}
+              error={!!fieldErrors.road_code}
+              value={getOptionLabel(options.road, values.road_code)}
+              onPress={() => openSelect(getLabel("Road Code"), options.road, values.road_code, v => setFieldValue("road_code", v))}
+            />
+            {showError("road_code")}
+          </View>
+          <View onLayout={registerField("house_number")}>
+            <TextInput
+              label={getLabel("House Number")}
+              value={values.house_number}
+              error={!!fieldErrors.house_number}
+              onChangeText={t => setFieldValue("house_number", t)}
+            />
+            {showError("house_number")}
+          </View>
+          <TextInput
+            label={getLabel("House Locality / Address")}
+            value={values.house_locality}
+            onChangeText={t => setFieldValue("house_locality", t)}
+          />
+          <View onLayout={registerField("tax_code")}>
+            <TextInput
+              label={reqLabel("Tax Code")}
+              value={values.tax_code}
+              error={!!fieldErrors.tax_code}
+              onChangeText={t => setFieldValue("tax_code", t)}
+            />
+            {showError("tax_code")}
+          </View>
+          <View onLayout={registerField("structure_type_id")}>
+            <SelectionInput
+              label={reqLabel("Structure Type")}
+              error={!!fieldErrors.structure_type_id}
+              value={getOptionLabel(options.structure, values.structure_type_id)}
+              onPress={() =>
+                openSelect(getLabel("Structure Type"), options.structure, values.structure_type_id, v =>
+                  setFieldValue("structure_type_id", v),
+                )
+              }
+            />
+            {showError("structure_type_id")}
+          </View>
+          <TextInput label={getLabel("Surveyed Date")} value={values.surveyed_date} onChangeText={t => setFieldValue("surveyed_date", t)} />
+          <View onLayout={registerField("construction_year")}>
+            <TextInput
+              label={reqLabel("Construction Year")}
+              value={values.construction_year}
+              error={!!fieldErrors.construction_year}
+              onChangeText={t => setFieldValue("construction_year", t)}
+            />
+            {showError("construction_year")}
+          </View>
+          <View onLayout={registerField("floor_count")}>
+            <TextInput
+              label={reqLabel("Number of Floors")}
+              value={values.floor_count}
+              error={!!fieldErrors.floor_count}
+              onChangeText={t => setFieldValue("floor_count", t)}
+            />
+            {showError("floor_count")}
+          </View>
+          <View onLayout={registerField("functional_use_id")}>
+            <SelectionInput
+              label={reqLabel("Functional Use")}
+              error={!!fieldErrors.functional_use_id}
+              value={getOptionLabel(options.functional, values.functional_use_id)}
+              onPress={() =>
+                openSelect(getLabel("Functional Use"), options.functional, values.functional_use_id, v =>
+                  setFieldValue("functional_use_id", v),
+                )
+              }
+            />
+            {showError("functional_use_id")}
+          </View>
+          <View onLayout={registerField("use_category_id")}>
+            <SelectionInput
+              label={reqLabel("Use Category")}
+              error={!!fieldErrors.use_category_id}
+              value={getOptionLabel(options.useCategory, values.use_category_id)}
+              onPress={() =>
+                openSelect(getLabel("Use Category"), options.useCategory, values.use_category_id, v =>
+                  setFieldValue("use_category_id", v),
+                )
+              }
+            />
+            {showError("use_category_id")}
+          </View>
+          <TextInput
+            label={getLabel("Office / Business Name")}
+            value={values.office_business_name}
+            onChangeText={t => setFieldValue("office_business_name", t)}
+          />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Population</Text>
-          <View onLayout={registerField("household_served")}><TextInput label="Household Served *" value={values.household_served} error={!!fieldErrors.household_served} onChangeText={t => setFieldValue("household_served", t)} />{showError("household_served")}</View>
-          <View onLayout={registerField("population_served")}><TextInput label="Population Served *" value={values.population_served} error={!!fieldErrors.population_served} onChangeText={t => setFieldValue("population_served", t)} />{showError("population_served")}</View>
-          <TextInput label="Male Population" value={values.male_population} onChangeText={t => setFieldValue("male_population", t)} />
-          <TextInput label="Female Population" value={values.female_population} onChangeText={t => setFieldValue("female_population", t)} />
-          <TextInput label="Other Population" value={values.other_population} onChangeText={t => setFieldValue("other_population", t)} />
-          <TextInput label="Differently Abled Male Population" value={values.diff_abled_male_pop} onChangeText={t => setFieldValue("diff_abled_male_pop", t)} />
-          <TextInput label="Differently Abled Female Population" value={values.diff_abled_female_pop} onChangeText={t => setFieldValue("diff_abled_female_pop", t)} />
-          <TextInput label="Differently Abled Other Population" value={values.diff_abled_others_pop} onChangeText={t => setFieldValue("diff_abled_others_pop", t)} />
+          <Text style={styles.sectionTitle}>{getLabel("Population")}</Text>
+          <View onLayout={registerField("household_served")}>
+            <TextInput
+              label={reqLabel("Household Served")}
+              value={values.household_served}
+              error={!!fieldErrors.household_served}
+              onChangeText={t => setFieldValue("household_served", t)}
+            />
+            {showError("household_served")}
+          </View>
+          <View onLayout={registerField("population_served")}>
+            <TextInput
+              label={reqLabel("Population Served")}
+              value={values.population_served}
+              error={!!fieldErrors.population_served}
+              onChangeText={t => setFieldValue("population_served", t)}
+            />
+            {showError("population_served")}
+          </View>
+          <TextInput label={getLabel("Male Population")} value={values.male_population} onChangeText={t => setFieldValue("male_population", t)} />
+          <TextInput label={getLabel("Female Population")} value={values.female_population} onChangeText={t => setFieldValue("female_population", t)} />
+          <TextInput label={getLabel("Other Population")} value={values.other_population} onChangeText={t => setFieldValue("other_population", t)} />
+          <TextInput
+            label={getLabel("Differently Abled Male Population")}
+            value={values.diff_abled_male_pop}
+            onChangeText={t => setFieldValue("diff_abled_male_pop", t)}
+          />
+          <TextInput
+            label={getLabel("Differently Abled Female Population")}
+            value={values.diff_abled_female_pop}
+            onChangeText={t => setFieldValue("diff_abled_female_pop", t)}
+          />
+          <TextInput
+            label={getLabel("Differently Abled Other Population")}
+            value={values.diff_abled_others_pop}
+            onChangeText={t => setFieldValue("diff_abled_others_pop", t)}
+          />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>LIC Information</Text>
-          <View onLayout={registerField("low_income_hh")}><SelectionInput label="Low Income House *" error={!!fieldErrors.low_income_hh} value={getOptionLabel(yesNoOptions, values.low_income_hh)} onPress={() => openSelect("Low Income House", yesNoOptions, values.low_income_hh, v => setFieldValue("low_income_hh", v))} />{showError("low_income_hh")}</View>
-          <View onLayout={registerField("lic_status")}><SelectionInput label="Located in LIC? *" error={!!fieldErrors.lic_status} value={getOptionLabel(yesNoOptions, values.lic_status)} onPress={() => openSelect("Located in LIC?", yesNoOptions, values.lic_status, v => setFieldValue("lic_status", v))} />{showError("lic_status")}</View>
-          {showLicId && <View onLayout={registerField("lic_id")}><SelectionInput label="LIC Name *" error={!!fieldErrors.lic_id} value={getOptionLabel(options.lic, values.lic_id)} onPress={() => openSelect("LIC Name", options.lic, values.lic_id, v => setFieldValue("lic_id", v))} />{showError("lic_id")}</View>}
+          <Text style={styles.sectionTitle}>{getLabel("LIC Information")}</Text>
+          <View onLayout={registerField("low_income_hh")}>
+            <SelectionInput
+              label={reqLabel("Low Income House")}
+              error={!!fieldErrors.low_income_hh}
+              value={getOptionLabel(yesNoOptions, values.low_income_hh)}
+              onPress={() =>
+                openSelect(getLabel("Low Income House"), yesNoOptions, values.low_income_hh, v => setFieldValue("low_income_hh", v))
+              }
+            />
+            {showError("low_income_hh")}
+          </View>
+          <View onLayout={registerField("lic_status")}>
+            <SelectionInput
+              label={reqLabel("Located in LIC?")}
+              error={!!fieldErrors.lic_status}
+              value={getOptionLabel(yesNoOptions, values.lic_status)}
+              onPress={() =>
+                openSelect(getLabel("Located in LIC?"), yesNoOptions, values.lic_status, v => setFieldValue("lic_status", v))
+              }
+            />
+            {showError("lic_status")}
+          </View>
+          {showLicId && (
+            <View onLayout={registerField("lic_id")}>
+              <SelectionInput
+                label={reqLabel("LIC ID")}
+                error={!!fieldErrors.lic_id}
+                value={getOptionLabel(options.lic, values.lic_id)}
+                onPress={() => openSelect(getLabel("LIC Name"), options.lic, values.lic_id, v => setFieldValue("lic_id", v))}
+              />
+              {showError("lic_id")}
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Water Source Information</Text>
-          <View onLayout={registerField("water_source_id")}><SelectionInput label="Main Drinking Water Source *" error={!!fieldErrors.water_source_id} value={getOptionLabel(options.waterSource, values.water_source_id)} onPress={() => openSelect("Main Drinking Water Source", options.waterSource, values.water_source_id, v => setFieldValue("water_source_id", v))} />{showError("water_source_id")}</View>
+          <Text style={styles.sectionTitle}>{getLabel("Water Source Information")}</Text>
+          <View onLayout={registerField("water_source_id")}>
+            <SelectionInput
+              label={reqLabel("Water Source")}
+              error={!!fieldErrors.water_source_id}
+              value={getOptionLabel(options.waterSource, values.water_source_id)}
+              onPress={() =>
+                openSelect(getLabel("Water Source"), options.waterSource, values.water_source_id, v =>
+                  setFieldValue("water_source_id", v),
+                )
+              }
+            />
+            {showError("water_source_id")}
+          </View>
           {showWaterPipe && (
             <>
-              <View onLayout={registerField("water_customer_id")}><TextInput label="Water Customer ID *" value={values.water_customer_id} error={!!fieldErrors.water_customer_id} onChangeText={t => setFieldValue("water_customer_id", t)} />{showError("water_customer_id")}</View>
-              <View onLayout={registerField("watersupply_pipe_code")}><TextInput label="Water Supply Pipe Code *" value={values.watersupply_pipe_code} error={!!fieldErrors.watersupply_pipe_code} onChangeText={t => setFieldValue("watersupply_pipe_code", t)} />{showError("watersupply_pipe_code")}</View>
+              <View onLayout={registerField("water_customer_id")}>
+                <TextInput
+                  label={reqLabel("Water Customer ID")}
+                  value={values.water_customer_id}
+                  error={!!fieldErrors.water_customer_id}
+                  onChangeText={t => setFieldValue("water_customer_id", t)}
+                />
+                {showError("water_customer_id")}
+              </View>
+              <View onLayout={registerField("watersupply_pipe_code")}>
+                <TextInput
+                  label={reqLabel("Water Supply Pipe Code")}
+                  value={values.watersupply_pipe_code}
+                  error={!!fieldErrors.watersupply_pipe_code}
+                  onChangeText={t => setFieldValue("watersupply_pipe_code", t)}
+                />
+                {showError("watersupply_pipe_code")}
+              </View>
             </>
           )}
-          <View onLayout={registerField("well_presence_status")}><SelectionInput label="Well in Premises *" error={!!fieldErrors.well_presence_status} value={getOptionLabel(yesNoOptions, values.well_presence_status)} onPress={() => openSelect("Well in Premises", yesNoOptions, values.well_presence_status, v => setFieldValue("well_presence_status", v))} />{showError("well_presence_status")}</View>
-          {showWellDistance && <View onLayout={registerField("distance_from_well")}><TextInput label="Distance from Well *" value={values.distance_from_well} error={!!fieldErrors.distance_from_well} onChangeText={t => setFieldValue("distance_from_well", t)} />{showError("distance_from_well")}</View>}
-          <TextInput label="SWM Customer ID" value={values.swm_customer_id} onChangeText={t => setFieldValue("swm_customer_id", t)} />
+          <View onLayout={registerField("well_presence_status")}>
+            <SelectionInput
+              label={reqLabel("Well in Premises")}
+              error={!!fieldErrors.well_presence_status}
+              value={getOptionLabel(yesNoOptions, values.well_presence_status)}
+              onPress={() =>
+                openSelect(getLabel("Well in Premises"), yesNoOptions, values.well_presence_status, v =>
+                  setFieldValue("well_presence_status", v),
+                )
+              }
+            />
+            {showError("well_presence_status")}
+          </View>
+          {showWellDistance && (
+            <View onLayout={registerField("distance_from_well")}>
+              <TextInput
+                label={reqLabel("Distance from Well")}
+                value={values.distance_from_well}
+                error={!!fieldErrors.distance_from_well}
+                onChangeText={t => setFieldValue("distance_from_well", t)}
+              />
+              {showError("distance_from_well")}
+            </View>
+          )}
+          <TextInput label={getLabel("SWM Customer ID")} value={values.swm_customer_id} onChangeText={t => setFieldValue("swm_customer_id", t)} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sanitation System Information</Text>
-          <View onLayout={registerField("toilet_status")}><SelectionInput label="Presence of Toilet *" error={!!fieldErrors.toilet_status} value={getOptionLabel(yesNoOptions, values.toilet_status)} onPress={() => openSelect("Presence of Toilet", yesNoOptions, values.toilet_status, v => setFieldValue("toilet_status", v))} />{showError("toilet_status")}</View>
+          <Text style={styles.sectionTitle}>{getLabel("Sanitation System Information")}</Text>
+          <View onLayout={registerField("toilet_status")}>
+            <SelectionInput
+              label={reqLabel("Presence of Toilet")}
+              error={!!fieldErrors.toilet_status}
+              value={getOptionLabel(yesNoOptions, values.toilet_status)}
+              onPress={() =>
+                openSelect(getLabel("Presence of Toilet"), yesNoOptions, values.toilet_status, v => setFieldValue("toilet_status", v))
+              }
+            />
+            {showError("toilet_status")}
+          </View>
           {showToiletConnection ? (
             <>
-              <View onLayout={registerField("toilet_count")}><TextInput label="Number of Toilets *" value={values.toilet_count} error={!!fieldErrors.toilet_count} onChangeText={t => setFieldValue("toilet_count", t)} />{showError("toilet_count")}</View>
-              <TextInput label="Households with Private Toilet" value={values.household_with_private_toilet} onChangeText={t => setFieldValue("household_with_private_toilet", t)} />
-              <TextInput label="Population with Private Toilet" value={values.population_with_private_toilet} onChangeText={t => setFieldValue("population_with_private_toilet", t)} />
-              <View onLayout={registerField("sanitation_system_id")}><SelectionInput label="Toilet Connection *" error={!!fieldErrors.sanitation_system_id} value={getOptionLabel(options.toiletConn, values.sanitation_system_id)} onPress={() => openSelect("Toilet Connection", options.toiletConn, values.sanitation_system_id, v => setFieldValue("sanitation_system_id", v))} />{showError("sanitation_system_id")}</View>
-              <View onLayout={registerField("drain_code")}><SelectionInput label="Drain Code" error={!!fieldErrors.drain_code} value={getOptionLabel(options.drain, values.drain_code)} onPress={() => openSelect("Drain Code", options.drain, values.drain_code, v => setFieldValue("drain_code", v))} />{showError("drain_code")}</View>
-              <View onLayout={registerField("sewer_code")}><SelectionInput label="Sewer Code" error={!!fieldErrors.sewer_code} value={getOptionLabel(options.sewer, values.sewer_code)} onPress={() => openSelect("Sewer Code", options.sewer, values.sewer_code, v => setFieldValue("sewer_code", v))} />{showError("sewer_code")}</View>
-              <SelectionInput label="Building Accessible to Desludging Vehicle" value={getOptionLabel(yesNoOptions, values.desludging_vehicle_accessible)} onPress={() => openSelect("Building Accessible to Desludging Vehicle", yesNoOptions, values.desludging_vehicle_accessible, v => setFieldValue("desludging_vehicle_accessible", v))} />
+              <View onLayout={registerField("toilet_count")}>
+                <TextInput
+                  label={reqLabel("Toilet Count")}
+                  value={values.toilet_count}
+                  error={!!fieldErrors.toilet_count}
+                  onChangeText={t => setFieldValue("toilet_count", t)}
+                />
+                {showError("toilet_count")}
+              </View>
+              <TextInput
+                label={getLabel("Households with Private Toilet")}
+                value={values.household_with_private_toilet}
+                onChangeText={t => setFieldValue("household_with_private_toilet", t)}
+              />
+              <TextInput
+                label={getLabel("Population with Private Toilet")}
+                value={values.population_with_private_toilet}
+                onChangeText={t => setFieldValue("population_with_private_toilet", t)}
+              />
+              <View onLayout={registerField("sanitation_system_id")}>
+                <SelectionInput
+                  label={reqLabel("Sanitation System")}
+                  error={!!fieldErrors.sanitation_system_id}
+                  value={getOptionLabel(options.toiletConn, values.sanitation_system_id)}
+                  onPress={() =>
+                    openSelect(getLabel("Toilet Connection"), options.toiletConn, values.sanitation_system_id, v =>
+                      setFieldValue("sanitation_system_id", v),
+                    )
+                  }
+                />
+                {showError("sanitation_system_id")}
+              </View>
+              <View onLayout={registerField("drain_code")}>
+                <SelectionInput
+                  label={reqLabel("Drain Code")}
+                  error={!!fieldErrors.drain_code}
+                  value={getOptionLabel(options.drain, values.drain_code)}
+                  onPress={() => openSelect(getLabel("Drain Code"), options.drain, values.drain_code, v => setFieldValue("drain_code", v))}
+                />
+                {showError("drain_code")}
+              </View>
+              <View onLayout={registerField("sewer_code")}>
+                <SelectionInput
+                  label={reqLabel("Sewer Code")}
+                  error={!!fieldErrors.sewer_code}
+                  value={getOptionLabel(options.sewer, values.sewer_code)}
+                  onPress={() => openSelect(getLabel("Sewer Code"), options.sewer, values.sewer_code, v => setFieldValue("sewer_code", v))}
+                />
+                {showError("sewer_code")}
+              </View>
+              <SelectionInput
+                label={getLabel("Building Accessible to Desludging Vehicle")}
+                value={getOptionLabel(yesNoOptions, values.desludging_vehicle_accessible)}
+                onPress={() =>
+                  openSelect(
+                    getLabel("Building Accessible to Desludging Vehicle"),
+                    yesNoOptions,
+                    values.desludging_vehicle_accessible,
+                    v => setFieldValue("desludging_vehicle_accessible", v),
+                  )
+                }
+              />
             </>
           ) : (
             <>
-              <View onLayout={registerField("defecation_place")}><SelectionInput label="Defecation Place *" error={!!fieldErrors.defecation_place} value={getOptionLabel(options.defecation, values.defecation_place)} onPress={() => openSelect("Defecation Place", options.defecation, values.defecation_place, v => setFieldValue("defecation_place", v))} />{showError("defecation_place")}</View>
-              {showCtpt && <View onLayout={registerField("ctpt_name")}><SelectionInput label="CTPT Name *" error={!!fieldErrors.ctpt_name} value={getOptionLabel(options.ctpt, values.ctpt_name)} onPress={() => openSelect("CTPT Name", options.ctpt, values.ctpt_name, v => setFieldValue("ctpt_name", v))} />{showError("ctpt_name")}</View>}
+              <View onLayout={registerField("defecation_place")}>
+                <SelectionInput
+                  label={reqLabel("Defecation Place")}
+                  error={!!fieldErrors.defecation_place}
+                  value={getOptionLabel(options.defecation, values.defecation_place)}
+                  onPress={() =>
+                    openSelect(getLabel("Defecation Place"), options.defecation, values.defecation_place, v =>
+                      setFieldValue("defecation_place", v),
+                    )
+                  }
+                />
+                {showError("defecation_place")}
+              </View>
+              {showCtpt && (
+                <View onLayout={registerField("ctpt_name")}>
+                  <SelectionInput
+                    label={reqLabel("CTPT Name")}
+                    error={!!fieldErrors.ctpt_name}
+                    value={getOptionLabel(options.ctpt, values.ctpt_name)}
+                    onPress={() => openSelect(getLabel("CTPT Name"), options.ctpt, values.ctpt_name, v => setFieldValue("ctpt_name", v))}
+                  />
+                  {showError("ctpt_name")}
+                </View>
+              )}
             </>
           )}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>House Image</Text>
-          <Button mode="outlined" onPress={pickHouseImage}>Pick house image</Button>
-          {!!values.houseImageFile && <Text style={styles.fileMeta}>{values.houseImageFile?.name || "house.jpg"}</Text>}
-          <Text style={styles.helpText}>Images (JPG, PNG) should not be more than 5MB</Text>
+          <Text style={styles.sectionTitle}>{getLabel("House Image")}</Text>
+          <Button mode="outlined" onPress={pickHouseImage}>
+            {getLabel("Pick Image")}
+          </Button>
+          {!!values.houseImageFile && (
+            <Text style={styles.fileMeta}>{values.houseImageFile?.name || getLabel("house.jpg")}</Text>
+          )}
+          <Text style={styles.helpText}>{getLabel("Image size can not exceed 5 MB.")}</Text>
         </View>
 
         <View style={styles.buttonArea}>
           <Button mode="contained" onPress={handleWmsSubmit} disabled={saving}>
-            {saving ? "Updating..." : "Save"}
+            {saving ? getLabel("Saving...") : getLabel("Save")}
           </Button>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Containment Information</Text>
-          {options.containmentList.length ? options.containmentList.map((c, idx) => (
-            <View key={`${c?.containment_id || idx}`} style={styles.containmentCard}>
-              <Text style={styles.containmentTitle}>Containment ID: {String(c?.containment_id || c?.id || "-")}</Text>
-              <Text>Sanitation System: {String(c?.toilet_name || c?.sanitation_system || "-")}</Text>
-              <Text>Containment Volume: {String(c?.containment_volume || c?.volume || "-")}</Text>
-              <Text>Containment Location: {String(c?.containment_location || c?.location || "-")}</Text>
-            </View>
-          )) : <Text style={styles.helpText}>No containment information available.</Text>}
+          <Text style={styles.sectionTitle}>{getLabel("Containment Information")}</Text>
+          {options.containmentList.length ? (
+            options.containmentList.map((c, idx) => (
+              <View key={`${c?.containment_id || idx}`} style={styles.containmentCard}>
+                <Text style={styles.containmentTitle}>
+                  {getLabel("Containment ID:")} {String(c?.containment_id || c?.id || "-")}
+                </Text>
+                <Text>
+                  {getLabel("Sanitation System:")} {String(c?.toilet_name || c?.sanitation_system || "-")}
+                </Text>
+                <Text>
+                  {getLabel("Containment Volume:")} {String(c?.containment_volume || c?.volume || "-")}
+                </Text>
+                <Text>
+                  {getLabel("Containment Location:")} {String(c?.containment_location || c?.location || "-")}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.helpText}>{getLabel("No containment information available.")}</Text>
+          )}
         </View>
       </ScrollView>
     </View>

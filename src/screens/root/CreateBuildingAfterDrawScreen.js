@@ -65,6 +65,8 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
   const [useCatByFunctional, setUseCatByFunctional] = useState({});
 
   const getLabel = (key) => contentsLabel?.[key] || key;
+  const reqLabel = (key) => `${getLabel(key)} *`;
+
   const visible = useMemo(
     () => getVisibleConditionalFields(values),
     [values]
@@ -284,7 +286,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Header title={getLabel("Create Building")} />
-      <LoadingSpinner isVisible={loadingMeta} title="Loading form options" />
+      <LoadingSpinner isVisible={loadingMeta} title={getLabel("Loading form options")} />
       <ScrollView contentContainerStyle={styles.content}>
         {!!loadMetaError && (
           <View>
@@ -295,38 +297,38 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
           </View>
         )}
         <Text variant="titleMedium">{getLabel("Required Fields")}</Text>
-        {renderInput("temp_building_code", "Temp Building Code *")}
-        {renderInput("tax_code", "Tax Code *")}
-        {renderInput("collected_date", "Collected Date (YYYY-MM-DD) *")}
-        {renderSelection("ward", "Ward *", dropdowns.ward, "Ward")}
-        {renderSelection("road_code", "Road Code *", dropdowns.roadCode, "Road Code")}
-        {renderInput("house_number", "House Number")}
+        {renderInput("temp_building_code", reqLabel("Temp Building Code"))}
+        {renderInput("tax_code", reqLabel("Tax Code"))}
+        {renderInput("collected_date", reqLabel("Collected Date (YYYY-MM-DD)"))}
+        {renderSelection("ward", reqLabel("Ward"), dropdowns.ward, getLabel("Ward"))}
+        {renderSelection("road_code", reqLabel("Road Code"), dropdowns.roadCode, getLabel("Road Code"))}
+        {renderInput("house_number", getLabel("House Number"))}
         {renderSelection(
           "structure_type_id",
-          "Structure Type *",
+          reqLabel("Structure Type"),
           dropdowns.structureType,
-          "Structure Type"
+          getLabel("Structure Type")
         )}
-        {renderInput("construction_year", "Construction Year (YYYY-MM-DD) *")}
-        {renderInput("floor_count", "Floor Count *", { keyboardType: "decimal-pad" })}
+        {renderInput("construction_year", reqLabel("Construction Year (YYYY-MM-DD)"))}
+        {renderInput("floor_count", reqLabel("Floor Count"), { keyboardType: "decimal-pad" })}
         {renderSelection(
           "functional_use_id",
-          "Functional Use *",
+          reqLabel("Functional Use"),
           dropdowns.functionalUse,
-          "Functional Use"
+          getLabel("Functional Use")
         )}
         {visible.use_category_id &&
           renderSelection(
             "use_category_id",
-            "Use Category *",
+            reqLabel("Use Category"),
             dropdowns.useCategory,
-            "Use Category"
+            getLabel("Use Category")
           )}
         {renderSelection(
           "water_source_id",
-          "Water Source *",
+          reqLabel("Water Source"),
           dropdowns.waterSource,
-          "Water Source"
+          getLabel("Water Source")
         )}
 
         <View style={styles.switchRow}>
@@ -336,9 +338,9 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         {visible.building_associated_to &&
           renderSelection(
             "building_associated_to",
-            "Building Associated To *",
+            reqLabel("Building Associated To"),
             dropdowns.buildingBin,
-            "Building Bin"
+            getLabel("Building Bin")
           )}
 
         <View style={styles.switchRow}>
@@ -346,7 +348,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
           <Switch value={isOn("lic_status")} onValueChange={() => onToggle("lic_status")} />
         </View>
         {visible.lic_id &&
-          renderSelection("lic_id", "LIC ID *", dropdowns.licNames, "LIC Name")}
+          renderSelection("lic_id", reqLabel("LIC ID"), dropdowns.licNames, getLabel("LIC Name"))}
 
         <View style={styles.switchRow}>
           <Text>{getLabel("Toilet Status")}</Text>
@@ -357,46 +359,46 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         )}
 
         {visible.toilet_count &&
-          renderInput("toilet_count", "Toilet Count *", { keyboardType: "numeric" })}
+          renderInput("toilet_count", reqLabel("Toilet Count"), { keyboardType: "numeric" })}
         {visible.sanitation_system_id &&
           renderSelection(
             "sanitation_system_id",
-            "Sanitation System *",
+            reqLabel("Sanitation System"),
             dropdowns.toiletConnection,
-            "Toilet Connection"
+            getLabel("Toilet Connection")
           )}
         {visible.defecation_place &&
           renderSelection(
             "defecation_place",
-            "Defecation Place *",
+            reqLabel("Defecation Place"),
             dropdowns.defecationPlace,
-            "Defecation Place"
+            getLabel("Defecation Place")
           )}
         {visible.ctpt_name &&
-          renderSelection("ctpt_name", "CTPT Name *", dropdowns.ctpt, "CTPT Name")}
+          renderSelection("ctpt_name", reqLabel("CTPT Name"), dropdowns.ctpt, getLabel("CTPT Name"))}
         {visible.build_contain &&
           renderSelection(
             "build_contain",
-            "Build Contain *",
+            reqLabel("Build Contain"),
             dropdowns.preconnectedBin,
-            "Preconnected BIN"
+            getLabel("Preconnected BIN")
           )}
         {visible.sewer_code &&
-          renderSelection("sewer_code", "Sewer Code *", dropdowns.sewerCode, "Sewer Code")}
+          renderSelection("sewer_code", reqLabel("Sewer Code"), dropdowns.sewerCode, getLabel("Sewer Code"))}
         {visible.drain_code &&
-          renderSelection("drain_code", "Drain Code *", dropdowns.drainCode, "Drain Code")}
+          renderSelection("drain_code", reqLabel("Drain Code"), dropdowns.drainCode, getLabel("Drain Code"))}
         {visible.watersupply_pipe_code &&
           renderSelection(
             "watersupply_pipe_code",
-            "Water Supply Pipe Code *",
+            reqLabel("Water Supply Pipe Code"),
             dropdowns.waterSupply,
-            "Water Supply"
+            getLabel("Water Supply")
           )}
 
-        {renderInput("population_served", "Population Served", {
+        {renderInput("population_served", getLabel("Population Served"), {
           keyboardType: "numeric",
         })}
-        {renderInput("house_locality", "House Locality")}
+        {renderInput("house_locality", getLabel("House Locality"))}
 
         <View style={styles.imageRow}>
           <Text numberOfLines={1} style={styles.fileName}>
