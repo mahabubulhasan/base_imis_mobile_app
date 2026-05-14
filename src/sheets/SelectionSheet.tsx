@@ -1,10 +1,11 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Dimensions, FlatList, StyleSheet, View} from 'react-native';
 import ActionSheet, {
   SheetManager,
   SheetProps,
 } from 'react-native-actions-sheet';
 import {Checkbox, Text, TextInput} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 
 import SheetHeader from '../components/Sheets/SheetHeader';
 
@@ -27,15 +28,26 @@ export default function SelectionSheet({
   sheetId,
   payload,
 }: SheetProps<'selection-sheet'>) {
+  const contentsLabel = useSelector(
+    (state: {auth?: {contentsLabel?: Record<string, string>}}) => state.auth?.contentsLabel,
+  );
+  const getLabel = useCallback(
+    (key: string) => contentsLabel?.[key] || key,
+    [contentsLabel],
+  );
+
   const {
     options = [],
     title,
     selectedOption,
     initialVisibleLimit = 20,
     searchable = true,
-    searchPlaceholder = 'Search',
-    emptyLabel = 'No options found',
+    searchPlaceholder: searchPlaceholderProp,
+    emptyLabel: emptyLabelProp,
   } = payload || {};
+
+  const searchPlaceholder = searchPlaceholderProp ?? getLabel('Search');
+  const emptyLabel = emptyLabelProp ?? getLabel('No options found');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
