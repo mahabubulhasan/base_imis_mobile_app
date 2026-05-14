@@ -215,25 +215,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <View style={[styles.bottomContainer]}>
             <Text style={styles.bottomText} variant="labelLarge">
-              Base IMIS {"\u00A9"} 2022-{currentYear} by{" "}
-              <TouchableWithoutFeedback onPress={openInnovativeSolution}>
-                <>
-                  <Text style={styles.bottomLink} variant="labelLarge">
-                    Laskhmipur Municipality
-                  </Text>{"\n"}
-                  &{" "}
-                  <Text style={styles.bottomLink} variant="labelLarge">
-                    GWSC-AIT
-                  </Text>
-                </>
-              </TouchableWithoutFeedback>{" "}
-              is licensed under{" "}
-              <TouchableWithoutFeedback onPress={openCCLicense}>
-                <Text variant="labelLarge" style={styles.bottomLink}>
-                  CC BY-NC-SA 4.0
-                </Text>
-              </TouchableWithoutFeedback>
-              .
+              {"\u00A9"} {currentYear} Laskhmipur Municipality. All rights reserved.
             </Text>
           </View>
         </View>
