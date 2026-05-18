@@ -184,7 +184,7 @@ const HomeScreen = ({ navigation }) => {
                 }
               />
             )}
-            {(true || permissions["save-sludge-collection"]) && ( // TODO add permission check
+            {(permissions["sludge-collection"]) && (
               <DashboardTile
                 title={getLabel("Sludge Collection")}
                 image={IMAGES.emptying}
@@ -215,7 +215,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <View style={[styles.bottomContainer]}>
             <Text style={styles.bottomText} variant="labelLarge">
-              {"\u00A9"} {currentYear} Laskhmipur Municipality. All rights reserved.
+              {"\u00A9"} {currentYear} {getLabel("Laskhmipur Municipality")}. {getLabel("All rights reserved")}.
             </Text>
           </View>
         </View>

@@ -496,7 +496,7 @@ const BuildingEditScreen = ({navigation, route}) => {
         {!!values.house_number && (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>
-              {getLabel("House Number:")} {values.house_number}
+              {getLabel("House Number")}: {values.house_number}
             </Text>
           </View>
         )}
