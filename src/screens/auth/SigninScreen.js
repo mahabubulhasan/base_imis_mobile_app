@@ -151,6 +151,7 @@ const SigninScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollView}
       >
         <VerticalSpacer size={60} />
+        <Image source={IMAGES.imis_logo} style={styles.imisLogo} />
         <Image source={IMAGES.fulllogo} style={styles.logo} />
         <VerticalSpacer size={20} />
         <TextInput
@@ -254,11 +255,16 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: size * 0.7,
-    height: size * 0.3,
+    height: size * 0.4,
     resizeMode: "contain",
     alignSelf: "center",
   },
-
+  imisLogo: {
+    width: size * 0.7,
+    height: size * 0.2,
+    resizeMode: "contain",
+    alignSelf: "center",
+  },
   contentContainer: {
     flex: 1,
     padding: SPACINGS.md,

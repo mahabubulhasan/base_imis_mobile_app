@@ -178,7 +178,7 @@ const HomeScreen = ({ navigation }) => {
             {permissions["save-emptying-service"] && (
               <DashboardTile
                 title={getLabel("Emptying Service")}
-                image={IMAGES.emptying}
+                image={IMAGES.emptying_service}
                 onPress={() =>
                   navigateTo(ROUTES.application_list, { emptying: true })
                 }
@@ -187,7 +187,7 @@ const HomeScreen = ({ navigation }) => {
             {(permissions["sludge-collection"]) && (
               <DashboardTile
                 title={getLabel("Sludge Collection")}
-                image={IMAGES.emptying}
+                image={IMAGES.sludge_collection}
                 onPress={() =>
                   navigateTo(ROUTES.application_list, { sludgeCollection: true })
                 }
