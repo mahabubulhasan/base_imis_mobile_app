@@ -250,7 +250,7 @@ const BuildingDataScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Header title={getLabel("Buildings Data")} />
+      <Header title={getLabel("Building Data")} />
       {buildingsData.length > 0 ? (
         <>
           <LoadingSpinner isVisible={loading} title="Uploading" />

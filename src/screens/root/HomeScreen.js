@@ -154,7 +154,7 @@ const HomeScreen = ({ navigation }) => {
             /> */}
 
                 <DashboardTile
-                  title={getLabel("Buildings Data")}
+                  title={getLabel("Building Data")}
                   image={IMAGES.buildings_data}
                   onPress={() => navigateTo(ROUTES.building_data, {})}
                 />

@@ -130,7 +130,7 @@ const RootStack = ({ navigation }) => {
         />
         <Screen
           options={{
-            title: "Buildings Data",
+            title: "Building Data",
             headerShown: false,
           }}
           name={ROUTES.building_data}
