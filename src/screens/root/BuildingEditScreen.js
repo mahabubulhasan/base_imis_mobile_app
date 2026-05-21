@@ -221,7 +221,22 @@ const BuildingEditScreen = ({navigation, route}) => {
   });
 
   const setFieldValue = useCallback((key, val) => {
-    setValues(prev => ({...prev, [key]: val}));
+    setValues(prev => {
+      const next = {...prev, [key]: val};
+
+      if (key === "toilet_status" && String(val) !== "1") {
+        next.sanitation_system_id = "";
+        next.drain_code = "";
+        next.sewer_code = "";
+      }
+
+      if (key === "sanitation_system_id") {
+        if (String(val) !== "1") next.sewer_code = "";
+        if (String(val) !== "2") next.drain_code = "";
+      }
+
+      return next;
+    });
     setFieldErrors(prev => {
       if (!prev[key]) return prev;
       const next = {...prev};
@@ -247,6 +262,14 @@ const BuildingEditScreen = ({navigation, route}) => {
   const showWaterPipe = useMemo(() => String(values.water_source_id) === "1", [values.water_source_id]);
   const showWellDistance = useMemo(() => String(values.well_presence_status) === "1", [values.well_presence_status]);
   const showToiletConnection = useMemo(() => String(values.toilet_status) === "1", [values.toilet_status]);
+  const showSewerCode = useMemo(
+    () => showToiletConnection && String(values.sanitation_system_id) === "1",
+    [showToiletConnection, values.sanitation_system_id],
+  );
+  const showDrainCode = useMemo(
+    () => showToiletConnection && String(values.sanitation_system_id) === "2",
+    [showToiletConnection, values.sanitation_system_id],
+  );
   const showDefecation = useMemo(() => String(values.toilet_status) === "0", [values.toilet_status]);
   const showCtpt = useMemo(() => String(values.defecation_place) === "9", [values.defecation_place]);
 
@@ -372,6 +395,8 @@ const BuildingEditScreen = ({navigation, route}) => {
     req("distance_from_well", "Distance from well is required.", showWellDistance);
     req("toilet_count", "Toilet Count is required.", showToiletConnection);
     req("sanitation_system_id", "Sanitation System is required.", showToiletConnection);
+    req("sewer_code", "Sewer Code is required.", showSewerCode);
+    req("drain_code", "Drain Code is required.", showDrainCode);
     req("defecation_place", "Defecation Place is required.", showDefecation);
     req("ctpt_name", "CTPT Name is required.", showCtpt);
     return errs;
@@ -379,8 +404,10 @@ const BuildingEditScreen = ({navigation, route}) => {
     getLabel,
     showAssociatedBuilding,
     showCtpt,
+    showDrainCode,
     showDefecation,
     showLicId,
+    showSewerCode,
     showToiletConnection,
     showWaterPipe,
     showWellDistance,
@@ -854,24 +881,28 @@ const BuildingEditScreen = ({navigation, route}) => {
                 />
                 {showError("sanitation_system_id")}
               </View>
-              <View onLayout={registerField("drain_code")}>
-                <SelectionInput
-                  label={reqLabel("Drain Code")}
-                  error={!!fieldErrors.drain_code}
-                  value={getOptionLabel(options.drain, values.drain_code)}
-                  onPress={() => openSelect(getLabel("Drain Code"), options.drain, values.drain_code, v => setFieldValue("drain_code", v))}
-                />
-                {showError("drain_code")}
-              </View>
-              <View onLayout={registerField("sewer_code")}>
-                <SelectionInput
-                  label={reqLabel("Sewer Code")}
-                  error={!!fieldErrors.sewer_code}
-                  value={getOptionLabel(options.sewer, values.sewer_code)}
-                  onPress={() => openSelect(getLabel("Sewer Code"), options.sewer, values.sewer_code, v => setFieldValue("sewer_code", v))}
-                />
-                {showError("sewer_code")}
-              </View>
+              {showDrainCode && (
+                <View onLayout={registerField("drain_code")}>
+                  <SelectionInput
+                    label={reqLabel("Drain Code")}
+                    error={!!fieldErrors.drain_code}
+                    value={getOptionLabel(options.drain, values.drain_code)}
+                    onPress={() => openSelect(getLabel("Drain Code"), options.drain, values.drain_code, v => setFieldValue("drain_code", v))}
+                  />
+                  {showError("drain_code")}
+                </View>
+              )}
+              {showSewerCode && (
+                <View onLayout={registerField("sewer_code")}>
+                  <SelectionInput
+                    label={reqLabel("Sewer Code")}
+                    error={!!fieldErrors.sewer_code}
+                    value={getOptionLabel(options.sewer, values.sewer_code)}
+                    onPress={() => openSelect(getLabel("Sewer Code"), options.sewer, values.sewer_code, v => setFieldValue("sewer_code", v))}
+                  />
+                  {showError("sewer_code")}
+                </View>
+              )}
               <SelectionInput
                 label={getLabel("Building Accessible to Desludging Vehicle")}
                 value={getOptionLabel(yesNoOptions, values.desludging_vehicle_accessible)}

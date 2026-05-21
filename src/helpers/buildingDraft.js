@@ -19,6 +19,8 @@ export const BUILDING_FORM_INITIAL_VALUES = {
   lic_id: "",
   watersupply_pipe_code: "",
   toilet_count: "",
+  household_with_private_toilet: "",
+  population_with_private_toilet: "",
   sanitation_system_id: "",
   defecation_place: "",
   ctpt_name: "",
@@ -42,6 +44,7 @@ const REQUIRED_KEYS = [
   "functional_use_id",
   "water_source_id",
   "toilet_status",
+  "population_served",
 ];
 
 const isEmpty = (value) =>
@@ -164,6 +167,8 @@ export const getVisibleConditionalFields = (values) => {
     lic_id: licStatus === "1",
     watersupply_pipe_code: String(values.water_source_id) === "1",
     toilet_count: toiletStatus === "1",
+    household_with_private_toilet: toiletStatus === "1",
+    population_with_private_toilet: toiletStatus === "1",
     sanitation_system_id: toiletStatus === "1",
     defecation_place: toiletStatus === "0",
     ctpt_name: String(values.defecation_place) === "9",
@@ -182,6 +187,8 @@ export const sanitizeBuildingDraftByVisibility = (values) => {
   if (!visible.lic_id) next.lic_id = "";
   if (!visible.watersupply_pipe_code) next.watersupply_pipe_code = "";
   if (!visible.toilet_count) next.toilet_count = "";
+  if (!visible.household_with_private_toilet) next.household_with_private_toilet = "";
+  if (!visible.population_with_private_toilet) next.population_with_private_toilet = "";
   if (!visible.sanitation_system_id) next.sanitation_system_id = "";
   if (!visible.defecation_place) next.defecation_place = "";
   if (!visible.ctpt_name) next.ctpt_name = "";

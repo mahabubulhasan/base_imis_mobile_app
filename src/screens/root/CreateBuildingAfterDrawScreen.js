@@ -166,6 +166,8 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         next.build_contain = "";
         next.sewer_code = "";
         next.drain_code = "";
+        next.household_with_private_toilet = "";
+        next.population_with_private_toilet = "";
       }
 
       if (key === "defecation_place" && String(value) !== "9") {
@@ -360,6 +362,10 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
 
         {visible.toilet_count &&
           renderInput("toilet_count", reqLabel("Toilet Count"), { keyboardType: "numeric" })}
+        {visible.household_with_private_toilet &&
+          renderInput("household_with_private_toilet", getLabel("Households with Private Toilet"))}
+        {visible.population_with_private_toilet &&
+          renderInput("population_with_private_toilet", getLabel("Population with Private Toilet"))}
         {visible.sanitation_system_id &&
           renderSelection(
             "sanitation_system_id",
@@ -395,14 +401,14 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
             getLabel("Water Supply")
           )}
 
-        {renderInput("population_served", getLabel("Population Served"), {
+        {renderInput("population_served", reqLabel("Population Served"), {
           keyboardType: "numeric",
         })}
-        {renderInput("house_locality", getLabel("House Locality"))}
+        {renderInput("house_locality", getLabel("House Locality / Address"))}
 
         <View style={styles.imageRow}>
           <Text numberOfLines={1} style={styles.fileName}>
-            {houseImageFile?.name || "No house image selected"}
+            {houseImageFile?.name || getLabel("No house image selected")}
           </Text>
           <Button mode="outlined" onPress={pickHouseImage}>
             {getLabel("Pick Image")}
