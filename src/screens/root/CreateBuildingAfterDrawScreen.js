@@ -6,6 +6,7 @@ import DocumentPicker from "react-native-document-picker";
 import RNFB from "react-native-blob-util";
 import dayjs from "dayjs";
 import { SheetManager } from "react-native-actions-sheet";
+import DatePicker from "react-native-date-picker";
 
 import { Header } from "../../components/headers";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -63,6 +64,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
   const [loadMetaError, setLoadMetaError] = useState("");
   const [dropdowns, setDropdowns] = useState(INITIAL_DROPDOWNS);
   const [useCatByFunctional, setUseCatByFunctional] = useState({});
+  const [activeDateField, setActiveDateField] = useState(null);
 
   const getLabel = (key) => contentsLabel?.[key] || key;
   const reqLabel = (key) => `${getLabel(key)} *`;
@@ -285,6 +287,39 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
 
   const isOn = (key) => normalizeBoolean01(values[key], "0") === "1";
 
+  const getDateValue = (key) => {
+    const parsed = dayjs(values[key]);
+    return parsed.isValid() ? parsed.toDate() : new Date();
+  };
+
+  const renderDateInput = (key, label, { required = false, maximumDate } = {}) => (
+    <View style={styles.inputWrap}>
+      <TextInput
+        mode="outlined"
+        label={required ? reqLabel(label) : getLabel(label)}
+        value={String(values[key] ?? "")}
+        editable={false}
+        showSoftInputOnFocus={false}
+        error={!!errors[key]}
+        right={<TextInput.Icon icon="calendar" onPress={() => setActiveDateField(key)} />}
+        onPressIn={() => setActiveDateField(key)}
+      />
+      {!!errors[key] && <HelperText type="error">{errors[key]}</HelperText>}
+      <DatePicker
+        modal
+        mode="date"
+        open={activeDateField === key}
+        date={getDateValue(key)}
+        maximumDate={maximumDate}
+        onConfirm={(date) => {
+          setFieldValue(key, dayjs(date).format("YYYY-MM-DD"));
+          setActiveDateField(null);
+        }}
+        onCancel={() => setActiveDateField(null)}
+      />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <Header title={getLabel("Create Building")} />
@@ -301,7 +336,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         <Text variant="titleMedium">{getLabel("Required Fields")}</Text>
         {renderInput("temp_building_code", reqLabel("Temp Building Code"))}
         {renderInput("tax_code", reqLabel("Tax Code"))}
-        {renderInput("collected_date", reqLabel("Collected Date (YYYY-MM-DD)"))}
+        {renderDateInput("collected_date", "Collected Date (YYYY-MM-DD)", { required: true, maximumDate: new Date() })}
         {renderSelection("ward", reqLabel("Ward"), dropdowns.ward, getLabel("Ward"))}
         {renderSelection("road_code", reqLabel("Road Code"), dropdowns.roadCode, getLabel("Road Code"))}
         {renderInput("house_number", getLabel("House Number"))}
@@ -311,7 +346,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
           dropdowns.structureType,
           getLabel("Structure Type")
         )}
-        {renderInput("construction_year", reqLabel("Construction Year (YYYY-MM-DD)"))}
+        {renderDateInput("construction_year", "Construction Year (YYYY-MM-DD)", { required: true, maximumDate: new Date() })}
         {renderInput("floor_count", reqLabel("Floor Count"), { keyboardType: "decimal-pad" })}
         {renderSelection(
           "functional_use_id",

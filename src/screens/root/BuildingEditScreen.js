@@ -5,6 +5,8 @@ import {useDispatch, useSelector} from "react-redux";
 import {SheetManager} from "react-native-actions-sheet";
 import DocumentPicker from "react-native-document-picker";
 import RNFB from "react-native-blob-util";
+import DatePicker from "react-native-date-picker";
+import dayjs from "dayjs";
 
 import {Header} from "../../components/headers";
 import SelectionInput from "../../components/inputs/SelectionInput";
@@ -166,6 +168,7 @@ const BuildingEditScreen = ({navigation, route}) => {
   const [editMeta, setEditMeta] = useState({});
   const scrollRef = useRef(null);
   const fieldYRef = useRef({});
+  const [activeDateField, setActiveDateField] = useState(null);
 
   const [localTempCode, setLocalTempCode] = useState("");
   const [localTaxCode, setLocalTaxCode] = useState("");
@@ -416,6 +419,38 @@ const BuildingEditScreen = ({navigation, route}) => {
 
   const showError = key => (fieldErrors[key] ? <HelperText type="error">{fieldErrors[key]}</HelperText> : null);
 
+  const getDateValue = key => {
+    const parsed = dayjs(values[key]);
+    return parsed.isValid() ? parsed.toDate() : new Date();
+  };
+
+  const renderDateInput = (key, label, {required = false, maximumDate} = {}) => (
+    <>
+      <TextInput
+        label={required ? reqLabel(label) : getLabel(label)}
+        value={String(values[key] ?? "")}
+        editable={false}
+        showSoftInputOnFocus={false}
+        error={!!fieldErrors[key]}
+        right={<TextInput.Icon icon="calendar" onPress={() => setActiveDateField(key)} />}
+        onPressIn={() => setActiveDateField(key)}
+      />
+      {showError(key)}
+      <DatePicker
+        modal
+        mode="date"
+        open={activeDateField === key}
+        date={getDateValue(key)}
+        maximumDate={maximumDate}
+        onConfirm={date => {
+          setFieldValue(key, dayjs(date).format("YYYY-MM-DD"));
+          setActiveDateField(null);
+        }}
+        onCancel={() => setActiveDateField(null)}
+      />
+    </>
+  );
+
   const handleWmsSubmit = async () => {
     const errs = validateWms();
     if (Object.keys(errs).length) {
@@ -641,15 +676,9 @@ const BuildingEditScreen = ({navigation, route}) => {
             />
             {showError("structure_type_id")}
           </View>
-          <TextInput label={getLabel("Surveyed Date")} value={values.surveyed_date} onChangeText={t => setFieldValue("surveyed_date", t)} />
+          {renderDateInput("surveyed_date", "Surveyed Date", {maximumDate: new Date()})}
           <View onLayout={registerField("construction_year")}>
-            <TextInput
-              label={reqLabel("Construction Year")}
-              value={values.construction_year}
-              error={!!fieldErrors.construction_year}
-              onChangeText={t => setFieldValue("construction_year", t)}
-            />
-            {showError("construction_year")}
+            {renderDateInput("construction_year", "Construction Year", {required: true, maximumDate: new Date()})}
           </View>
           <View onLayout={registerField("floor_count")}>
             <TextInput
