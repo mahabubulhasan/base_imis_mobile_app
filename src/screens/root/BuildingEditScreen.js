@@ -59,6 +59,22 @@ const getOptionLabel = (options, value) => {
   return found?.label ?? "";
 };
 
+const formatTaxCode = value => {
+  const cleaned = String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 11);
+
+  const parts = [
+    cleaned.slice(0, 2),
+    cleaned.slice(2, 5),
+    cleaned.slice(5, 9),
+    cleaned.slice(9, 11),
+  ].filter(Boolean);
+
+  return parts.join("-");
+};
+
 const shouldHaveValue = value => {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -657,9 +673,11 @@ const BuildingEditScreen = ({navigation, route}) => {
           <View onLayout={registerField("tax_code")}>
             <TextInput
               label={reqLabel("Tax Code")}
+              placeholder="ww-rrr-hhhh-xx"
               value={values.tax_code}
               error={!!fieldErrors.tax_code}
-              onChangeText={t => setFieldValue("tax_code", t)}
+              autoCapitalize="characters"
+              onChangeText={t => setFieldValue("tax_code", formatTaxCode(t))}
             />
             {showError("tax_code")}
           </View>

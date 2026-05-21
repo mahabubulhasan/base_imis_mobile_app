@@ -51,6 +51,22 @@ const getOptionLabel = (options, value) => {
   return found?.label || "";
 };
 
+const formatTaxCode = (value) => {
+  const cleaned = String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 11);
+
+  const parts = [
+    cleaned.slice(0, 2),
+    cleaned.slice(2, 5),
+    cleaned.slice(5, 9),
+    cleaned.slice(9, 11),
+  ].filter(Boolean);
+
+  return parts.join("-");
+};
+
 const CreateBuildingAfterDrawScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { contentsLabel } = useSelector((state) => state.auth);
@@ -335,7 +351,11 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         )}
         <Text variant="titleMedium">{getLabel("Required Fields")}</Text>
         {renderInput("temp_building_code", reqLabel("Temp Building Code"))}
-        {renderInput("tax_code", reqLabel("Tax Code"))}
+        {renderInput("tax_code", reqLabel("Tax Code"), {
+          placeholder: "ww-rrr-hhhh-xx",
+          autoCapitalize: "characters",
+          onChangeText: (text) => setFieldValue("tax_code", formatTaxCode(text)),
+        })}
         {renderDateInput("collected_date", "Collected Date (YYYY-MM-DD)", { required: true, maximumDate: new Date() })}
         {renderSelection("ward", reqLabel("Ward"), dropdowns.ward, getLabel("Ward"))}
         {renderSelection("road_code", reqLabel("Road Code"), dropdowns.roadCode, getLabel("Road Code"))}
