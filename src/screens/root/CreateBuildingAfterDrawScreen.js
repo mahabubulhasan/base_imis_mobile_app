@@ -244,7 +244,8 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
 
     try {
       setSaving(true);
-      const fileBase = `${sanitizedValues.temp_building_code}_${sanitizedValues.tax_code}_${Date.now()}`;
+      const fileParts = [sanitizedValues.temp_building_code, sanitizedValues.tax_code].filter(Boolean);
+      const fileBase = `${fileParts.join("_")}_${Date.now()}`;
       const kmlPath = `${RNFB.fs.dirs.DownloadDir}/${fileBase}.kml`;
       const xml = buildBuildingKml(buildingCoords, sanitizedValues.temp_building_code);
       await RNFB.fs.writeFile(kmlPath, xml);
@@ -351,7 +352,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         )}
         <Text variant="titleMedium">{getLabel("Required Fields")}</Text>
         {renderInput("temp_building_code", reqLabel("Temp Building Code"))}
-        {renderInput("tax_code", reqLabel("Tax Code"), {
+        {renderInput("tax_code", getLabel("Tax Code"), {
           placeholder: "ww-rrr-hhhh-xx",
           autoCapitalize: "characters",
           onChangeText: (text) => setFieldValue("tax_code", formatTaxCode(text)),

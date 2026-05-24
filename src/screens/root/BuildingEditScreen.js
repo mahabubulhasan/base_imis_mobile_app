@@ -395,7 +395,6 @@ const BuildingEditScreen = ({navigation, route}) => {
     req("main_building", "Main Building is required.");
     req("ward", "Ward is required.");
     req("road_code", "Road Code is required.");
-    req("tax_code", "Tax Code is required.");
     req("structure_type_id", "Structure Type is required.");
     req("construction_year", "Construction Year (YYYY-MM-DD) is required.");
     req("floor_count", "Floor Count is required.");
@@ -470,13 +469,13 @@ const BuildingEditScreen = ({navigation, route}) => {
   const handleWmsSubmit = async () => {
     const errs = validateWms();
     if (Object.keys(errs).length) {
-      setFieldErrors(errs);
-      scrollToField(Object.keys(errs)[0]);
+    if (!localTempCode.trim()) return Alert.alert(getLabel("Error"), getLabel("Code is required."));
       return;
     }
 
     try {
-      setSaving(true);
+      const fileParts = [localTempCode.trim(), localTaxCode.trim()].filter(Boolean);
+      const newPath = `${RNFB.fs.dirs.DownloadDir}/${fileParts.join("_")}.kml`;
       const payload = {...values};
       delete payload.houseImageFile;
       if (values.houseImageFile) payload.house_image = values.houseImageFile;
@@ -555,7 +554,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{getLabel("Edit Building Codes")}</Text>
             <TextInput label={reqLabel("Temp Building Code")} value={localTempCode} onChangeText={setLocalTempCode} />
-            <TextInput label={reqLabel("Tax Code")} value={localTaxCode} onChangeText={setLocalTaxCode} />
+            <TextInput label={getLabel("Tax Code")} value={localTaxCode} onChangeText={setLocalTaxCode} />
           </View>
           <View style={styles.buttonArea}>
             <Button mode="contained" onPress={handleLocalSubmit} disabled={saving}>
@@ -672,7 +671,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           />
           <View onLayout={registerField("tax_code")}>
             <TextInput
-              label={reqLabel("Tax Code")}
+              label={getLabel("Tax Code")}
               placeholder="ww-rrr-hhhh-xx"
               value={values.tax_code}
               error={!!fieldErrors.tax_code}
