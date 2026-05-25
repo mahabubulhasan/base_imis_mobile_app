@@ -14,7 +14,7 @@ const MapInfoButton = ({onPress, buildingCoords}) => {
   };
 
   return (
-    <Portal>
+    <>
       <FAB
         style={[
           styles.fab,
@@ -31,7 +31,7 @@ const MapInfoButton = ({onPress, buildingCoords}) => {
           },
         }}
       />
-    </Portal>
+    </>
   );
 };
 
