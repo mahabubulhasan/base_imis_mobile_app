@@ -282,7 +282,7 @@ const BuildingEditScreen = ({navigation, route}) => {
 
   const showAssociatedBuilding = useMemo(() => String(values.main_building) !== "1", [values.main_building]);
   const showLicId = useMemo(() => String(values.lic_status) === "1", [values.lic_status]);
-  const showWaterPipe = useMemo(() => String(values.water_source_id) === "1", [values.water_source_id]);
+  const showWaterPipe = useMemo(() => String(values.water_source_id) === "5", [values.water_source_id]); // 5 = Municipal/Public Water Supply
   const showWellDistance = useMemo(() => String(values.well_presence_status) === "1", [values.well_presence_status]);
   const showToiletConnection = useMemo(() => String(values.toilet_status) === "1", [values.toilet_status]);
   const showSewerCode = useMemo(
@@ -413,7 +413,6 @@ const BuildingEditScreen = ({navigation, route}) => {
     req("building_associated_to", "Building Associated To is required.", showAssociatedBuilding);
     req("lic_id", "LIC ID is required.", showLicId);
     req("water_customer_id", "Water Customer ID is required.", showWaterPipe);
-    req("watersupply_pipe_code", "Water supply pipe code is required.", showWaterPipe);
     req("distance_from_well", "Distance from well is required.", showWellDistance);
     req("toilet_count", "Toilet Count is required.", showToiletConnection);
     req("sanitation_system_id", "Sanitation System is required.", showToiletConnection);
@@ -915,7 +914,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               </View>
               <View onLayout={registerField("watersupply_pipe_code")}>
                 <TextInput
-                  label={reqLabel("Water Supply Pipe Code")}
+                  label={getLabel("Water Supply Pipe Code")}
                   value={values.watersupply_pipe_code}
                   error={!!fieldErrors.watersupply_pipe_code}
                   onChangeText={t => setFieldValue("watersupply_pipe_code", t)}
