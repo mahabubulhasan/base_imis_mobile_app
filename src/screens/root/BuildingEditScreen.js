@@ -403,7 +403,6 @@ const BuildingEditScreen = ({navigation, route}) => {
     req("construction_year", "Construction Year (YYYY-MM-DD) is required.");
     req("floor_count", "Floor Count is required.");
     req("functional_use_id", "Functional Use is required.");
-    req("use_category_id", "Use Category is required.");
     req("household_served", "Household Served is required.");
     req("population_served", "Population Served is required.");
     req("low_income_hh", "Low Income Household is required.");
@@ -751,7 +750,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           </View>
           <View onLayout={registerField("use_category_id")}>
             <SelectionInput
-              label={reqLabel("Use Category")}
+              label={getLabel("Use Category")}
               error={!!fieldErrors.use_category_id}
               value={getOptionLabel(options.useCategory, values.use_category_id)}
               onPress={() =>
