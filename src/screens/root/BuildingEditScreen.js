@@ -61,8 +61,7 @@ const getOptionLabel = (options, value) => {
 
 const formatTaxCode = value => {
   const cleaned = String(value ?? "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
+    .replace(/[^0-9]/g, "")
     .slice(0, 11);
 
   const parts = [
@@ -74,6 +73,8 @@ const formatTaxCode = value => {
 
   return parts.join("-");
 };
+
+const numericOnly = value => String(value ?? "").replace(/[^0-9]/g, "");
 
 const shouldHaveValue = value => {
   if (value === undefined || value === null) return false;
@@ -634,7 +635,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               value={values.owner_contact}
               error={!!fieldErrors.owner_contact}
               keyboardType="numeric"
-              onChangeText={t => setFieldValue("owner_contact", t)}
+              maxLength={11}
+              onChangeText={t => setFieldValue("owner_contact", numericOnly(t).slice(0, 11))}
             />
             {showError("owner_contact")}
           </View>
@@ -706,7 +708,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               placeholder="ww-rrr-hhhh-xx"
               value={values.tax_code}
               error={!!fieldErrors.tax_code}
-              autoCapitalize="characters"
+              keyboardType="numeric"
               onChangeText={t => setFieldValue("tax_code", formatTaxCode(t))}
             />
             {showError("tax_code")}
@@ -731,7 +733,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={reqLabel("Number of Floors")}
               value={values.floor_count}
               error={!!fieldErrors.floor_count}
-              onChangeText={t => setFieldValue("floor_count", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("floor_count", numericOnly(t))}
             />
             {showError("floor_count")}
           </View>
@@ -779,7 +782,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={reqLabel("Household Served")}
               value={values.household_served}
               error={!!fieldErrors.household_served}
-              onChangeText={t => setFieldValue("household_served", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("household_served", numericOnly(t))}
             />
             {showError("household_served")}
           </View>
@@ -788,7 +792,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={reqLabel("Population Served")}
               value={values.population_served}
               error={!!fieldErrors.population_served}
-              onChangeText={t => setFieldValue("population_served", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("population_served", numericOnly(t))}
             />
             {showError("population_served")}
           </View>
@@ -797,7 +802,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Male Population")}
               value={values.male_population}
               error={!!fieldErrors.male_population}
-              onChangeText={t => setFieldValue("male_population", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("male_population", numericOnly(t))}
             />
             {showError("male_population")}
           </View>
@@ -806,7 +812,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Female Population")}
               value={values.female_population}
               error={!!fieldErrors.female_population}
-              onChangeText={t => setFieldValue("female_population", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("female_population", numericOnly(t))}
             />
             {showError("female_population")}
           </View>
@@ -815,7 +822,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Other Population")}
               value={values.other_population}
               error={!!fieldErrors.other_population}
-              onChangeText={t => setFieldValue("other_population", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("other_population", numericOnly(t))}
             />
             {showError("other_population")}
           </View>
@@ -824,7 +832,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Differently Abled Male Population")}
               value={values.diff_abled_male_pop}
               error={!!fieldErrors.diff_abled_male_pop}
-              onChangeText={t => setFieldValue("diff_abled_male_pop", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("diff_abled_male_pop", numericOnly(t))}
             />
             {showError("diff_abled_male_pop")}
           </View>
@@ -833,7 +842,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Differently Abled Female Population")}
               value={values.diff_abled_female_pop}
               error={!!fieldErrors.diff_abled_female_pop}
-              onChangeText={t => setFieldValue("diff_abled_female_pop", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("diff_abled_female_pop", numericOnly(t))}
             />
             {showError("diff_abled_female_pop")}
           </View>
@@ -842,7 +852,8 @@ const BuildingEditScreen = ({navigation, route}) => {
               label={getLabel("Differently Abled Other Population")}
               value={values.diff_abled_others_pop}
               error={!!fieldErrors.diff_abled_others_pop}
-              onChangeText={t => setFieldValue("diff_abled_others_pop", t)}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("diff_abled_others_pop", numericOnly(t))}
             />
             {showError("diff_abled_others_pop")}
           </View>
