@@ -53,8 +53,7 @@ const getOptionLabel = (options, value) => {
 
 const formatTaxCode = (value) => {
   const cleaned = String(value ?? "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
+    .replace(/[^0-9]/g, "")
     .slice(0, 11);
 
   const parts = [
@@ -66,6 +65,8 @@ const formatTaxCode = (value) => {
 
   return parts.join("-");
 };
+
+const numericOnly = (value) => String(value ?? "").replace(/[^0-9]/g, "");
 
 const CreateBuildingAfterDrawScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -354,7 +355,7 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         {renderInput("temp_building_code", reqLabel("Temp Building Code"))}
         {renderInput("tax_code", getLabel("Tax Code"), {
           placeholder: "ww-rrr-hhhh-xx",
-          autoCapitalize: "characters",
+          keyboardType: "numeric",
           onChangeText: (text) => setFieldValue("tax_code", formatTaxCode(text)),
         })}
         {renderDateInput("collected_date", "Collected Date (YYYY-MM-DD)", { required: true, maximumDate: new Date() })}
@@ -419,9 +420,15 @@ const CreateBuildingAfterDrawScreen = ({ navigation }) => {
         {visible.toilet_count &&
           renderInput("toilet_count", reqLabel("Toilet Count"), { keyboardType: "numeric" })}
         {visible.household_with_private_toilet &&
-          renderInput("household_with_private_toilet", getLabel("Households with Private Toilet"))}
+          renderInput("household_with_private_toilet", getLabel("Households with Private Toilet"), {
+            keyboardType: "numeric",
+            onChangeText: (text) => setFieldValue("household_with_private_toilet", numericOnly(text)),
+          })}
         {visible.population_with_private_toilet &&
-          renderInput("population_with_private_toilet", getLabel("Population with Private Toilet"))}
+          renderInput("population_with_private_toilet", getLabel("Population with Private Toilet"), {
+            keyboardType: "numeric",
+            onChangeText: (text) => setFieldValue("population_with_private_toilet", numericOnly(text)),
+          })}
         {visible.sanitation_system_id &&
           renderSelection(
             "sanitation_system_id",
