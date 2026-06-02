@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {Alert, Platform, ScrollView, StyleSheet, Text, View} from "react-native";
+import {Alert, Platform, ScrollView, StyleSheet, Text, ToastAndroid, View} from "react-native";
 import {Button, HelperText, TextInput} from "react-native-paper";
 import {useDispatch, useSelector} from "react-redux";
 import {SheetManager} from "react-native-actions-sheet";
@@ -491,17 +491,29 @@ const BuildingEditScreen = ({navigation, route}) => {
       ]);
     } catch (e) {
       const apiErrors = e?.response?.data?.errors;
+      const errorMessage = e?.response?.data?.message;
+
       if (apiErrors && typeof apiErrors === "object") {
         const mapped = {};
         Object.entries(apiErrors).forEach(([k, v]) => {
           mapped[k] = Array.isArray(v) ? String(v[0]) : String(v);
         });
         setFieldErrors(mapped);
+
+        // Show toast notification for validation errors
+        const message = errorMessage || getLabel("Please fix the errors below");
+        if (Platform.OS === "android") {
+          ToastAndroid.show(message, ToastAndroid.LONG);
+        } else {
+          Alert.alert(getLabel("Validation Error"), message);
+        }
+
         const first = Object.keys(mapped)[0];
         if (first) scrollToField(first);
         return;
       }
-      Alert.alert(getLabel("Error"), e?.response?.data?.message || getLabel("Failed to update building."));
+
+      Alert.alert(getLabel("Error"), errorMessage || getLabel("Failed to update building."));
     } finally {
       setSaving(false);
     }
