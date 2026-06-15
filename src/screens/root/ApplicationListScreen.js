@@ -3,15 +3,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import {
   FlatList,
   StyleSheet,
-  Text,
   View,
-  ScrollView,
   Alert,
-  RefreshControl,
   Linking,
   Platform,
 } from "react-native";
-import ApplicationCard from "../../components/common/ApplicationCard";
 import { ROUTES } from "../../core/constants/routes";
 import {
   assessmentService,
@@ -19,21 +15,17 @@ import {
   pendingApplications,
   sludgeCollectionApplications,
 } from "../../service/supervisor_service";
-import { useDispatch, useSelector } from "react-redux";
-import { resetToken } from "../../store/slices/auth.slice";
+import { useSelector } from "react-redux";
 import ApplicationListCard from "../../components/common/ApplicationListCard";
-import { List } from "react-native-paper";
-import LoadingSpinner from "../../components/common/LoadingSpinner";
 import PrimarySpinner from "../../components/common/PrimarySpinner";
 import { ErrorMessage } from "../../components/errorComponent";
 import { Header } from "../../components/headers";
-import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
+import { geometryToCoords, geometryToMapPoint } from "../../helpers/geo";
 
 export default function ApplicationListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const { assessment, emptying, sludgeCollection } = route.params;
-  const dispatch = useDispatch();
 
   const getPendingApplicationsService = () => {
     setIsLoading(true);
@@ -157,16 +149,28 @@ export default function ApplicationListScreen({ navigation, route }) {
     }
   };
 
+  const { contentsLabel } = useSelector((state) => state.auth);
+  const getLabel = (key) => contentsLabel?.[key] || key;
+
   const openPhone = (item) => {
     Linking.openURL(`tel:${item?.customer_contact}`);
   };
 
   const openGoogleMap = (item) => {
+    const mapPoint = geometryToMapPoint(item?.geometry);
+    if (!mapPoint) {
+      Alert.alert(
+        getLabel("Location unavailable"),
+        getLabel("Location not available for this application.")
+      );
+      return;
+    }
+
     const scheme = Platform.select({
       ios: "maps://0,0?q=",
       android: "geo:0,0?q=",
     });
-    const latLng = `${item.geometry.coordinates[0][0][0][1]},${item.geometry.coordinates[0][0][0][0]}`;
+    const latLng = `${mapPoint.latitude},${mapPoint.longitude}`;
     const label = `${item?.customer_name}'s location`;
     const url = Platform.select({
       ios: `${scheme}${label}@${latLng}`,
@@ -175,8 +179,6 @@ export default function ApplicationListScreen({ navigation, route }) {
 
     Linking.openURL(url);
   };
-  const { contentsLabel } = useSelector((state) => state.auth);
-  const getLabel = (key) => contentsLabel?.[key] || key;
   return (
     <View style={styles.container}>
       <Header title={getLabel("Application List")} />
@@ -189,6 +191,7 @@ export default function ApplicationListScreen({ navigation, route }) {
           renderItem={({ item }) => (
             <ApplicationListCard
               item={item}
+              locationAvailable={!!geometryToCoords(item?.geometry)}
               onCall={() => openPhone(item)}
               onLocation={() => openGoogleMap(item)}
               onStart={() => onClick(item)}

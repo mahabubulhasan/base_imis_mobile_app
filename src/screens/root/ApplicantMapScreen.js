@@ -1,11 +1,13 @@
-import React, {useRef, useEffect, useState} from 'react';
+import React, {useRef, useEffect, useState, useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {INITIAL_LOCATION} from '../../core/constants/map';
 import {useSelector} from 'react-redux';
 import MapView, {Polygon, PROVIDER_GOOGLE} from 'react-native-maps';
 import {askLocationPermission} from '../../helpers/permissions';
+import {geometryToCoords, geometryToMapPoint} from '../../helpers/geo';
 import {COLORS} from '../../core/theme';
 import {Header} from '../../components/headers';
+import {ErrorMessage} from '../../components/errorComponent';
 
 const ApplicantMapScreen = ({route}) => {
   const mapRef = useRef();
@@ -13,53 +15,76 @@ const ApplicantMapScreen = ({route}) => {
   const {mapType} = useSelector(state => state.map);
   const {item} = route.params;
 
-  const [location, setLocation] = useState({
-    ...INITIAL_LOCATION,
-    longitude: item.geometry.coordinates[0][0][0][0],
-    latitude: item.geometry.coordinates[0][0][0][1],
-    longitudeDelta: 0,
-    latitudeDelta: 0,
-  });
+  const polygonCoords = useMemo(
+    () => geometryToCoords(item?.geometry) ?? [],
+    [item?.geometry],
+  );
 
-  const [coords, setCoords] = useState([]);
+  const mapPoint = useMemo(
+    () => geometryToMapPoint(item?.geometry),
+    [item?.geometry],
+  );
+
+  const [location, setLocation] = useState(() => ({
+    ...INITIAL_LOCATION,
+    ...(mapPoint
+      ? {
+          longitude: mapPoint.longitude,
+          latitude: mapPoint.latitude,
+        }
+      : {}),
+  }));
+
+  const [coords, setCoords] = useState(polygonCoords);
+  const hasLocation = polygonCoords.length > 0;
 
   useEffect(() => {
-    askLocationPermission(async () => {
-      let coordinates = item.geometry.coordinates[0][0].map(item => {
-        return Object.assign({}, {longitude: item[0], latitude: item[1]});
-      });
+    if (!hasLocation) {
+      return;
+    }
 
-      setCoords(coordinates);
+    askLocationPermission(() => {
+      setCoords(polygonCoords);
+      if (mapPoint) {
+        setLocation(prev => ({
+          ...prev,
+          longitude: mapPoint.longitude,
+          latitude: mapPoint.latitude,
+        }));
+      }
     });
-  }, []);
+  }, [hasLocation, mapPoint, polygonCoords]);
+
+  const {contentsLabel} = useSelector(state => state.auth);
+  const getLabel = key => contentsLabel?.[key] || key;
 
   return (
     <View style={styles.container}>
-      <Header title="Applicant Location" />
-      <MapView
-        onLayout={() => {
-          mapRef.current.setMapBoundaries(
-            {latitude: 27.678, longitude: 85.442},
-            {latitude: 27.587, longitude: 85.327},
-          );
+      <Header title={getLabel('Applicant Location')} />
+      {hasLocation ? (
+        <MapView
+          onLayout={() => {
+            mapRef.current?.setMapBoundaries(
+              {latitude: 27.678, longitude: 85.442},
+              {latitude: 27.587, longitude: 85.327},
+            );
 
-          mapRef.current.animateToRegion(location);
-        }}
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={location}
-        region={location}
-        provider={PROVIDER_GOOGLE}
-        showsUserLocation
-        zoomControlEnabled
-        mapType={mapType}
-        showsIndoors={false}
-        minZoomLevel={13}
-        showsBuildings={false}
-        moveOnMarkerPress={false}
-        showsPointsOfInterest={false}>
-        {coords.length >= 1 && (
-          <>
+            mapRef.current?.animateToRegion(location);
+          }}
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={location}
+          region={location}
+          provider={PROVIDER_GOOGLE}
+          showsUserLocation
+          zoomControlEnabled
+          mapType={mapType}
+          showsIndoors={false}
+          minZoomLevel={13}
+          showsBuildings={false}
+          moveOnMarkerPress={false}
+          showsPointsOfInterest={false}>
+          {coords.length >= 1 && (
             <Polygon
               geodesic={false}
               strokeWidth={2}
@@ -67,9 +92,13 @@ const ApplicantMapScreen = ({route}) => {
               fillColor="rgba(45,87,250,0.07)"
               coordinates={coords}
             />
-          </>
-        )}
-      </MapView>
+          )}
+        </MapView>
+      ) : (
+        <ErrorMessage
+          message={getLabel('Location not available for this application.')}
+        />
+      )}
     </View>
   );
 };

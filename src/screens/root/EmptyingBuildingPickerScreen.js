@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import {Alert, StyleSheet, View, Platform, InteractionManager} from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
 import MapComponent from '../../components/mapcomponent/MapComponent';

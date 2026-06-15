@@ -1,3 +1,7 @@
+import {geometryToCoords} from '../helpers/geo';
+
+export {geometryToCoords};
+
 function splitUrl(href) {
   if (!href || typeof href !== "string") return { base: "", queryString: "" };
   const q = href.indexOf("?");
@@ -62,27 +66,6 @@ function lonLatTo3857({ longitude, latitude }) {
   const y =
     WEB_MERCATOR_R * Math.log(Math.tan(Math.PI / 4 + toRad(latitude) / 2));
   return { x, y };
-}
-
-export function geometryToCoords(geometry) {
-  if (!geometry) return null;
-
-  const type = geometry.type;
-  const coordinates = geometry.coordinates;
-
-  const toLatLng = ([x, y]) => ({ longitude: x, latitude: y });
-
-  if (type === "Polygon") {
-    const ring = coordinates?.[0];
-    return Array.isArray(ring) ? ring.map(toLatLng) : null;
-  }
-
-  if (type === "MultiPolygon") {
-    const ring = coordinates?.[0]?.[0];
-    return Array.isArray(ring) ? ring.map(toLatLng) : null;
-  }
-
-  return null;
 }
 
 export async function getWmsFeatureInfo({

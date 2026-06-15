@@ -7,7 +7,13 @@ import dayjs from "dayjs";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useSelector } from "react-redux";
 
-const ApplicationListCard = ({ item, onCall, onLocation, onStart }) => {
+const ApplicationListCard = ({
+  item,
+  onCall,
+  onLocation,
+  onStart,
+  locationAvailable = true,
+}) => {
   const [expanded, setExpanded] = useState(true);
 
   const { contentsLabel } = useSelector((state) => state.auth);
@@ -98,8 +104,8 @@ const ApplicationListCard = ({ item, onCall, onLocation, onStart }) => {
         <Icon
           name="map"
           size={20}
-          color={COLORS.primary}
-          onPress={onLocation}
+          color={locationAvailable ? COLORS.primary : COLORS.disabled}
+          onPress={locationAvailable ? onLocation : undefined}
         />
         <Icon
           name="form-select"
