@@ -13,6 +13,8 @@ import DatePicker from 'react-native-date-picker';
 import dayjs from 'dayjs';
 
 import SelectionInput from '../inputs/SelectionInput';
+import RemoteSelectionInput from '../inputs/RemoteSelectionInput';
+import {LOOKUP_CASCADE} from '../../helpers/buildingLookupFields';
 import {COLORS, SPACINGS} from '../../core/theme';
 import {
   BUILDING_FORM_INITIAL_VALUES,
@@ -99,14 +101,19 @@ const BuildingDraftForm = ({
       selectedValue: currentValue,
       searchable,
     });
-    if (selected !== undefined) {
-      onSelected(selected);
+    if (selected) {
+      onSelected(selected.value);
     }
   };
 
   const setFieldValue = (key, value) => {
     setValues(prev => {
       const next = {...prev, [key]: value};
+
+      // Clear downstream lookups whose context just changed (ward -> road -> ...).
+      (LOOKUP_CASCADE[key] || []).forEach(dependent => {
+        next[dependent] = '';
+      });
 
       if (key === 'functional_use_id') {
         next.use_category_id = '';
@@ -218,6 +225,22 @@ const BuildingDraftForm = ({
     </View>
   );
 
+  // Server-backed lookup field (road, BIN, lic, sewer, drain, water supply).
+  const renderRemote = (key, label, title = label) => (
+    <View style={styles.inputWrap}>
+      <RemoteSelectionInput
+        field={key}
+        label={label}
+        title={title}
+        value={values[key]}
+        values={values}
+        error={!!errors[key]}
+        onChange={val => setFieldValue(key, val)}
+      />
+      {!!errors[key] && <HelperText type="error">{errors[key]}</HelperText>}
+    </View>
+  );
+
   const getDateValue = key => {
     const parsed = dayjs(values[key]);
     return parsed.isValid() ? parsed.toDate() : new Date();
@@ -261,31 +284,43 @@ const BuildingDraftForm = ({
       <ScrollView contentContainerStyle={styles.content}>
         {isReady && (
           <>
-            <Text variant="titleMedium">{getLabel('Required Fields')}</Text>
+            {/* Field order mirrors the WMS building edit form (BuildingEditScreen).
+                Create-only fields (temp_building_code, collected_date,
+                build_contain) slot into their logical WMS positions. */}
+            <Text variant="titleMedium">{getLabel('Building Information')}</Text>
             {renderInput('temp_building_code', reqLabel('Temp Building Code'))}
+            {renderSelection(
+              'main_building',
+              reqLabel('Main Building'),
+              yesNoOptions,
+              getLabel('Main Building'),
+              false,
+            )}
+            {visible.building_associated_to &&
+              renderRemote(
+                'building_associated_to',
+                reqLabel('Building Associated To'),
+                getLabel('Building Bin'),
+              )}
+            {renderSelection('ward', reqLabel('Ward'), dropdowns.ward, getLabel('Ward'))}
+            {renderRemote('road_code', reqLabel('Road Code'), getLabel('Road Code'))}
+            {renderInput('house_number', getLabel('House Number'))}
+            {renderInput('house_locality', getLabel('House Locality / Address'))}
             {renderInput('tax_code', reqLabel('Tax Code'), {
               placeholder: 'ww-rrr-hhhh-xx',
               keyboardType: 'numeric',
               onChangeText: text => setFieldValue('tax_code', formatTaxCode(text)),
             })}
-            {renderDateInput('collected_date', 'Collected Date (YYYY-MM-DD)', {
-              required: true,
-              maximumDate: new Date(),
-            })}
-            {renderSelection('ward', reqLabel('Ward'), dropdowns.ward, getLabel('Ward'))}
-            {renderSelection(
-              'road_code',
-              reqLabel('Road Code'),
-              dropdowns.roadCode,
-              getLabel('Road Code'),
-            )}
-            {renderInput('house_number', getLabel('House Number'))}
             {renderSelection(
               'structure_type_id',
               reqLabel('Structure Type'),
               dropdowns.structureType,
               getLabel('Structure Type'),
             )}
+            {renderDateInput('collected_date', 'Collected Date (YYYY-MM-DD)', {
+              required: true,
+              maximumDate: new Date(),
+            })}
             {renderDateInput('construction_year', 'Construction Year (YYYY-MM-DD)', {
               required: true,
               maximumDate: new Date(),
@@ -311,26 +346,15 @@ const BuildingDraftForm = ({
                 dropdowns.useCategory,
                 getLabel('Use Category'),
               )}
-            {renderSelection(
-              'water_source_id',
-              reqLabel('Water Source'),
-              dropdowns.waterSource,
-              getLabel('Water Source'),
-            )}
-            {renderSelection(
-              'main_building',
-              reqLabel('Main Building'),
-              yesNoOptions,
-              getLabel('Main Building'),
-              false,
-            )}
-            {visible.building_associated_to &&
-              renderSelection(
-                'building_associated_to',
-                reqLabel('Building Associated To'),
-                dropdowns.buildingBin,
-                getLabel('Building Bin'),
-              )}
+
+            <Text variant="titleMedium">{getLabel('Population')}</Text>
+            {renderInput('household_served', reqLabel('Household Served'), {
+              keyboardType: 'numeric',
+              onChangeText: text =>
+                setFieldValue('household_served', numericOnly(text)),
+            })}
+
+            <Text variant="titleMedium">{getLabel('LIC Information')}</Text>
             {renderSelection(
               'lic_status',
               getLabel('LIC Status'),
@@ -339,12 +363,27 @@ const BuildingDraftForm = ({
               false,
             )}
             {visible.lic_id &&
-              renderSelection(
-                'lic_id',
-                reqLabel('LIC Name'),
-                dropdowns.licNames,
-                getLabel('LIC Name'),
+              renderRemote('lic_id', reqLabel('LIC Name'), getLabel('LIC Name'))}
+
+            <Text variant="titleMedium">
+              {getLabel('Water Source Information')}
+            </Text>
+            {renderSelection(
+              'water_source_id',
+              reqLabel('Water Source'),
+              dropdowns.waterSource,
+              getLabel('Water Source'),
+            )}
+            {visible.watersupply_pipe_code &&
+              renderRemote(
+                'watersupply_pipe_code',
+                getLabel('Water Supply Pipe Code'),
+                getLabel('Water Supply'),
               )}
+
+            <Text variant="titleMedium">
+              {getLabel('Sanitation System Information')}
+            </Text>
             {renderSelection(
               'toilet_status',
               reqLabel('Toilet Status'),
@@ -386,6 +425,16 @@ const BuildingDraftForm = ({
                 dropdowns.toiletConnection,
                 getLabel('Toilet Connection'),
               )}
+            {visible.build_contain &&
+              renderRemote(
+                'build_contain',
+                reqLabel('Build Contain'),
+                getLabel('Preconnected BIN'),
+              )}
+            {visible.drain_code &&
+              renderRemote('drain_code', reqLabel('Drain Code'), getLabel('Drain Code'))}
+            {visible.sewer_code &&
+              renderRemote('sewer_code', reqLabel('Sewer Code'), getLabel('Sewer Code'))}
             {visible.defecation_place &&
               renderSelection(
                 'defecation_place',
@@ -400,40 +449,8 @@ const BuildingDraftForm = ({
                 dropdowns.ctpt,
                 getLabel('CTPT Name'),
               )}
-            {visible.build_contain &&
-              renderSelection(
-                'build_contain',
-                reqLabel('Build Contain'),
-                dropdowns.preconnectedBin,
-                getLabel('Preconnected BIN'),
-              )}
-            {visible.sewer_code &&
-              renderSelection(
-                'sewer_code',
-                reqLabel('Sewer Code'),
-                dropdowns.sewerCode,
-                getLabel('Sewer Code'),
-              )}
-            {visible.drain_code &&
-              renderSelection(
-                'drain_code',
-                reqLabel('Drain Code'),
-                dropdowns.drainCode,
-                getLabel('Drain Code'),
-              )}
-            {visible.watersupply_pipe_code &&
-              renderSelection(
-                'watersupply_pipe_code',
-                getLabel('Water Supply Pipe Code'),
-                dropdowns.waterSupply,
-                getLabel('Water Supply'),
-              )}
-            {renderInput('household_served', reqLabel('Household Served'), {
-              keyboardType: 'numeric',
-              onChangeText: text =>
-                setFieldValue('household_served', numericOnly(text)),
-            })}
-            {renderInput('house_locality', getLabel('House Locality / Address'))}
+
+            <Text variant="titleMedium">{getLabel('House Image')}</Text>
             <View style={styles.imageRow}>
               <Text numberOfLines={1} style={styles.fileName}>
                 {houseImageFile?.name || getLabel('No house image selected')}

@@ -22,6 +22,14 @@ export const URLS = {
   wsRoadLink: "wms/roads",
   wsWardLink: "wms/wards",
   wsSewerLink: "wms/sewers",
+
+  // On-demand search lookups (split out of form-metadata)
+  roadsSearch: "building-info/roads/search",
+  sewersSearch: "building-info/sewers/search",
+  drainsSearch: "building-info/drains/search",
+  waterSuppliesSearch: "building-info/water-supplies/search",
+  licsSearch: "building-info/lics/search",
+  binsSearch: "building-info/buildings/bins/search",
   sewerCode: "sewercode",
   buildingCode: "buildingcode",
   saveSewerData: "save-sewerconnection",

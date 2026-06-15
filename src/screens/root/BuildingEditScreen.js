@@ -9,6 +9,8 @@ import dayjs from "dayjs";
 
 import {Header} from "../../components/headers";
 import SelectionInput from "../../components/inputs/SelectionInput";
+import RemoteSelectionInput from "../../components/inputs/RemoteSelectionInput";
+import {LOOKUP_CASCADE} from "../../helpers/buildingLookupFields";
 import {buildBuildingKml} from "../../helpers/buildingKml";
 import BuildingDraftForm from "../../components/building/BuildingDraftForm";
 import {mapLocalBuildingToFormValues} from "../../helpers/buildingDraft";
@@ -233,6 +235,11 @@ const BuildingEditScreen = ({navigation, route}) => {
     setValues(prev => {
       const next = {...prev, [key]: val};
 
+      // Clear downstream lookups whose context just changed (ward -> road -> ...).
+      (LOOKUP_CASCADE[key] || []).forEach(dependent => {
+        next[dependent] = "";
+      });
+
       if (key === "toilet_status" && String(val) !== "1") {
         next.sanitation_system_id = "";
         next.drain_code = "";
@@ -336,22 +343,33 @@ const BuildingEditScreen = ({navigation, route}) => {
     [getDropdowns, values.functional_use_id],
   );
 
+  // Static maps from form-metadata. Contextual lookups (road, lic, sewer, drain)
+  // are server-backed via RemoteSelectionInput.
   const options = useMemo(
     () => ({
       ward: dropdowns.ward,
-      road: dropdowns.roadCode,
       structure: dropdowns.structureType,
       functional: dropdowns.functionalUse,
       useCategory: dropdowns.useCategory,
-      lic: dropdowns.licNames,
       waterSource: dropdowns.waterSource,
       toiletConn: dropdowns.toiletConnection,
       defecation: dropdowns.defecationPlace,
       ctpt: dropdowns.ctpt,
-      drain: dropdowns.drainCode,
-      sewer: dropdowns.sewerCode,
     }),
     [dropdowns],
+  );
+
+  // Server-backed lookup field (resolves saved labels via cache -> server).
+  const renderRemote = (key, label, title = label) => (
+    <RemoteSelectionInput
+      field={key}
+      label={label}
+      title={title}
+      value={values[key]}
+      values={values}
+      error={!!fieldErrors[key]}
+      onChange={val => setFieldValue(key, val)}
+    />
   );
 
   const openSelect = async (title, list, current, onSelected, searchable = true) => {
@@ -362,7 +380,7 @@ const BuildingEditScreen = ({navigation, route}) => {
       searchable,
       initialVisibleLimit: INITIAL_OPTION_LIMIT,
     });
-    if (selected !== undefined) onSelected(selected);
+    if (selected) onSelected(selected.value);
   };
 
   const validateWms = useCallback(() => {
@@ -655,12 +673,11 @@ const BuildingEditScreen = ({navigation, route}) => {
           </View>
           {showAssociatedBuilding && (
             <View onLayout={registerField("building_associated_to")}>
-              <TextInput
-                label={reqLabel("Building Associated To")}
-                value={values.building_associated_to}
-                error={!!fieldErrors.building_associated_to}
-                onChangeText={t => setFieldValue("building_associated_to", t)}
-              />
+              {renderRemote(
+                "building_associated_to",
+                reqLabel("Building Associated To"),
+                getLabel("Building Bin"),
+              )}
               {showError("building_associated_to")}
             </View>
           )}
@@ -674,12 +691,7 @@ const BuildingEditScreen = ({navigation, route}) => {
             {showError("ward")}
           </View>
           <View onLayout={registerField("road_code")}>
-            <SelectionInput
-              label={reqLabel("Road Code")}
-              error={!!fieldErrors.road_code}
-              value={getOptionLabel(options.road, values.road_code)}
-              onPress={() => openSelect(getLabel("Road Code"), options.road, values.road_code, v => setFieldValue("road_code", v))}
-            />
+            {renderRemote("road_code", reqLabel("Road Code"), getLabel("Road Code"))}
             {showError("road_code")}
           </View>
           <View onLayout={registerField("house_number")}>
@@ -883,12 +895,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           </View>
           {showLicId && (
             <View onLayout={registerField("lic_id")}>
-              <SelectionInput
-                label={reqLabel("LIC Name")}
-                error={!!fieldErrors.lic_id}
-                value={getOptionLabel(options.lic, values.lic_id)}
-                onPress={() => openSelect(getLabel("LIC Name"), options.lic, values.lic_id, v => setFieldValue("lic_id", v))}
-              />
+              {renderRemote("lic_id", reqLabel("LIC Name"), getLabel("LIC Name"))}
               {showError("lic_id")}
             </View>
           )}
@@ -1023,23 +1030,13 @@ const BuildingEditScreen = ({navigation, route}) => {
               </View>
               {showDrainCode && (
                 <View onLayout={registerField("drain_code")}>
-                  <SelectionInput
-                    label={reqLabel("Drain Code")}
-                    error={!!fieldErrors.drain_code}
-                    value={getOptionLabel(options.drain, values.drain_code)}
-                    onPress={() => openSelect(getLabel("Drain Code"), options.drain, values.drain_code, v => setFieldValue("drain_code", v))}
-                  />
+                  {renderRemote("drain_code", reqLabel("Drain Code"), getLabel("Drain Code"))}
                   {showError("drain_code")}
                 </View>
               )}
               {showSewerCode && (
                 <View onLayout={registerField("sewer_code")}>
-                  <SelectionInput
-                    label={reqLabel("Sewer Code")}
-                    error={!!fieldErrors.sewer_code}
-                    value={getOptionLabel(options.sewer, values.sewer_code)}
-                    onPress={() => openSelect(getLabel("Sewer Code"), options.sewer, values.sewer_code, v => setFieldValue("sewer_code", v))}
-                  />
+                  {renderRemote("sewer_code", reqLabel("Sewer Code"), getLabel("Sewer Code"))}
                   {showError("sewer_code")}
                 </View>
               )}
