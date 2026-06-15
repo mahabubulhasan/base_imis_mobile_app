@@ -17,11 +17,13 @@ import Profile from "../../components/home/Profile";
 import DashboardTile from "../../components/home/DashboardTile";
 import { IMAGES } from "../../core/constants/images";
 import { useDispatch, useSelector } from "react-redux";
-import { getBuildingWmslink } from "../../service/building_service";
 import {
   emptyingService,
   getLanguagesList,
 } from "../../service/supervisor_service";
+import { fetchBuildingFormMetadata } from "../../store/thunks/fetchBuildingFormMetadata";
+import { fetchWmsUrlsIfNeeded } from "../../store/thunks/fetchWmsUrlsIfNeeded";
+import { BASE_WMS_LAYERS } from "../../store/thunks/fetchWmsUrlsForScreen";
 import { useEffect } from "react";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { Header } from "../../components/headers";
@@ -45,19 +47,18 @@ const HomeScreen = ({ navigation }) => {
     getPermissions();
   }, []);
 
+  const refreshMapCache = (force = false) => {
+    dispatch(fetchWmsUrlsIfNeeded({ layers: BASE_WMS_LAYERS, force }));
+    dispatch(fetchBuildingFormMetadata({ force }));
+  };
+
   const getPermissions = () => {
     setLoading(true);
     fetchLanguages();
+    refreshMapCache(false);
+
     if (permissions["building-survey"] === true) {
       console.log("surveyer");
-      getBuildingWmslink()
-        .then((response) => {
-          console.log("logged in");
-        })
-        .catch((err) => {
-          setLoading(false);
-          return;
-        });
     }
 
     if (permissions["save-assessment"] === true) {
@@ -124,7 +125,13 @@ const HomeScreen = ({ navigation }) => {
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl onRefresh={getPermissions} refreshing={false} />
+          <RefreshControl
+            onRefresh={() => {
+              refreshMapCache(true);
+              getPermissions();
+            }}
+            refreshing={false}
+          />
         }
       >
         <Profile />

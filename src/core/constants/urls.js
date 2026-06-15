@@ -18,7 +18,7 @@ export const URLS = {
   buildingInfoUpdate: "building-info/update",
   uploadContainmentData: "save-containment",
   wsBuildingLink: "wms/buildings",
-  wsContainmentLink: "wms/contaiments",
+  wsContainmentLink: "wms/containments",
   wsRoadLink: "wms/roads",
   wsWardLink: "wms/wards",
   wsSewerLink: "wms/sewers",

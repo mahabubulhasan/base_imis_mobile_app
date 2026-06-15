@@ -4,6 +4,7 @@ import { Dialog, Divider, Portal } from "react-native-paper";
 import { Checkbox, Text } from "react-native-paper";
 import { COLORS } from "../../core/theme";
 import { useSelector } from "react-redux";
+import { ZOOM_LAYER_RULES } from "../../core/constants/wmsLayers";
 
 const SewerWMSView = ({
   mode,
@@ -17,9 +18,17 @@ const SewerWMSView = ({
   isWardWmsOn,
   isSewerWmsOn,
   onSewerWMSPress,
+  currentZoom,
 }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const getLabel = (key) => contentsLabel?.[key] || key;
+  const sewerMinZ = ZOOM_LAYER_RULES.sewer?.minZ;
+  const showSewerZoomHint =
+    currentZoom != null &&
+    sewerMinZ != null &&
+    currentZoom < sewerMinZ &&
+    isSewerWmsOn;
+
   return (
     <Portal>
       <Dialog
@@ -32,6 +41,13 @@ const SewerWMSView = ({
           <Dialog.Title style={styles.title}>
             {getLabel("WMS layers")}
           </Dialog.Title>
+
+          {showSewerZoomHint ? (
+            <Text style={styles.hint}>
+              {getLabel("Zoom in for best sewer layer detail")}
+            </Text>
+          ) : null}
+
           <Divider />
           <TouchableOpacity
             style={styles.checkboxRow}
@@ -88,6 +104,12 @@ const SewerWMSView = ({
 const styles = StyleSheet.create({
   title: {
     textAlign: "center",
+  },
+  hint: {
+    textAlign: "center",
+    marginBottom: 8,
+    color: COLORS.dark,
+    fontSize: 14,
   },
   checkboxRow: {
     flexDirection: "row",

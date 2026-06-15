@@ -6,17 +6,10 @@ import {
   normalizeBoolean01,
 } from '../helpers/buildingDraft';
 
-export const mapToOptions = obj =>
-  Object.entries(obj || {}).map(([value, label]) => ({
-    value: String(value),
-    label: String(label),
-  }));
+export {mapToOptions} from '../helpers/buildingFormMetadata';
 
-export const getCtptOptionsFromCreateData = data =>
-  mapToOptions(data?.capitalizedctpt || data?.ctpt);
-
-export const getBuildingCreateData = async () => {
-  return client.get(`${URLS.buildingInfoBuildings}/create-data`, {
+export const getBuildingFormMetadata = async () => {
+  return client.get(`${URLS.buildingInfoBuildings}/form-metadata`, {
     headers: {
       Accept: 'application/json',
     },
@@ -36,6 +29,8 @@ const RESERVED_DRAFT_KEYS = new Set([
   'upload_status',
   'last_error',
   'updated_at',
+  'field_errors',
+  'structure_type_name',
 ]);
 
 const BASE_FIELD_KEYS = [
@@ -64,6 +59,11 @@ const BASE_FIELD_KEYS = [
   'lic_id',
   'main_building',
   'lic_status',
+  'household_served',
+  'population_served',
+  'household_with_private_toilet',
+  'population_with_private_toilet',
+  'house_locality',
 ];
 
 export const buildSaveBuildingFormData = draft => {
@@ -79,6 +79,12 @@ export const buildSaveBuildingFormData = draft => {
     if (key === 'ctpt_name') return visible.ctpt_name;
     if (key === 'build_contain') return visible.build_contain;
     if (key === 'use_category_id') return visible.use_category_id;
+    if (key === 'household_with_private_toilet') {
+      return visible.household_with_private_toilet;
+    }
+    if (key === 'population_with_private_toilet') {
+      return visible.population_with_private_toilet;
+    }
     return true;
   };
 
@@ -86,12 +92,18 @@ export const buildSaveBuildingFormData = draft => {
     if (!includeKey(key)) return;
     const value = draft[key];
     if (value !== undefined && value !== null && String(value).trim() !== '') {
-      data.append(
-        key,
-        key === 'toilet_status' || key === 'main_building' || key === 'lic_status'
+      const normalized =
+        key === 'toilet_status' ||
+        key === 'main_building' ||
+        key === 'lic_status'
           ? normalizeBoolean01(value, '0')
-          : String(value),
-      );
+          : String(value);
+      data.append(key, normalized);
+      // The backend (BuildingSurveyRequest) validates a nested `payload_json`
+      // array IN ADDITION to the flat fields — e.g. payload_json.structure_type_id
+      // is required. Multipart `payload_json[key]` is parsed into that array by
+      // PHP (a JSON string would fail the `array` rule).
+      data.append(`payload_json[${key}]`, normalized);
     }
   });
 

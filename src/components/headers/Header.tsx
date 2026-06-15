@@ -26,6 +26,7 @@ import {
 } from "../../store/slices/auth.slice";
 import { logoutService } from "../../service/auth_service";
 import {
+  clearMapCache,
   resetBuildingCoords,
   toogleMapType,
 } from "../../store/slices/map.slice";
@@ -84,6 +85,7 @@ export default function Header({
       .then((res) => console.log("log out", res.data))
       .catch((err) => console.log(err))
       .finally(() => {
+        dispatch(clearMapCache());
         dispatch(resetToken());
       });
   };

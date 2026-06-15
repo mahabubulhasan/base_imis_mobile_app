@@ -1,4 +1,6 @@
-export const BUILDINGS_LAYER_PROPERTY_NAMES = [
+// Curated display order for building WMS feature attributes. Also reused to
+// order the building info box. Kept deduplicated and human-meaningful.
+export const BUILDINGS_LAYER_PROPERTY_ORDER = [
   "bin",
   "owner_name",
   "nid",
@@ -26,7 +28,6 @@ export const BUILDINGS_LAYER_PROPERTY_NAMES = [
   "diff_abled_female_pop",
   "diff_abled_others_pop",
   "lic_community",
-  "lic_community",
   "water_source_name",
   "water_customer_id",
   "watersupply_pipe_code",
@@ -45,4 +46,7 @@ export const BUILDINGS_LAYER_PROPERTY_NAMES = [
   "toilet_name",
   "verification_status",
   "house_image",
-].join(",");
+];
+
+export const BUILDINGS_LAYER_PROPERTY_NAMES =
+  BUILDINGS_LAYER_PROPERTY_ORDER.join(",");

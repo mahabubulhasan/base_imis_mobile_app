@@ -1,8 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, ToastAndroid, View} from "react-native";
-import {Button, HelperText, TextInput} from "react-native-paper";
+import {ActivityIndicator, Button, HelperText, TextInput} from "react-native-paper";
 import {useDispatch, useSelector} from "react-redux";
-import {SheetManager} from "react-native-actions-sheet";
 import DocumentPicker from "react-native-document-picker";
 import RNFB from "react-native-blob-util";
 import DatePicker from "react-native-date-picker";
@@ -10,11 +9,14 @@ import dayjs from "dayjs";
 
 import {Header} from "../../components/headers";
 import SelectionInput from "../../components/inputs/SelectionInput";
-import LoadingSpinner from "../../components/common/LoadingSpinner";
-import {kSheets} from "../../sheets";
-import {buildBuildingKml} from "../../helpers/kml/buildingKml";
+import {buildBuildingKml} from "../../helpers/buildingKml";
+import BuildingDraftForm from "../../components/building/BuildingDraftForm";
+import {mapLocalBuildingToFormValues} from "../../helpers/buildingDraft";
 import {askStoragePermission} from "../../helpers/permissions";
 import {updateBuildingData} from "../../store/slices/map.slice";
+import {getOptionLabel, getYesNoOptions} from "../../helpers/buildingFormOptions";
+import {openSelectionSheet} from "../../helpers/openSelectionSheet";
+import useBuildingFormMetadata from "../../hooks/useBuildingFormMetadata";
 import {getBuildingEditData, updateBuildingInfo} from "../../service/building_service";
 
 /** CMS keys omit trailing *; UI appends it for required fields via reqLabel(). */
@@ -27,36 +29,6 @@ const pickFirst = (source, keys, fallback = "") => {
     if (val !== undefined && val !== null && String(val).trim() !== "") return val;
   }
   return fallback;
-};
-
-const toOptionArray = value => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map(item => {
-        if (!item) return null;
-        if (typeof item === "string" || typeof item === "number") {
-          return {label: String(item), value: String(item)};
-        }
-        const v = item.value ?? item.id ?? item.key ?? item.code ?? item.bin ?? "";
-        const l = item.label ?? item.name ?? item.text ?? item.title ?? v;
-        if (v === "" && l === "") return null;
-        return {label: String(l), value: String(v)};
-      })
-      .filter(Boolean);
-  }
-  if (typeof value === "object") {
-    return Object.entries(value).map(([k, v]) => ({
-      value: String(k),
-      label: String(v),
-    }));
-  }
-  return [];
-};
-
-const getOptionLabel = (options, value) => {
-  const found = options?.find(o => String(o.value) === String(value));
-  return found?.label ?? "";
 };
 
 const formatTaxCode = value => {
@@ -179,16 +151,33 @@ const BuildingEditScreen = ({navigation, route}) => {
   const localIndex = route?.params?.index;
   const bin = route?.params?.bin;
 
-  const [loading, setLoading] = useState(source === "wms");
+  const [loadingEditData, setLoadingEditData] = useState(source === "wms");
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [editMeta, setEditMeta] = useState({});
+  const [containmentList, setContainmentList] = useState([]);
+  const {
+    isReady,
+    isInitialLoading,
+    status: metadataStatus,
+    error: metadataError,
+    retry,
+    getDropdowns,
+  } = useBuildingFormMetadata();
   const scrollRef = useRef(null);
   const fieldYRef = useRef({});
   const [activeDateField, setActiveDateField] = useState(null);
 
-  const [localTempCode, setLocalTempCode] = useState("");
-  const [localTaxCode, setLocalTaxCode] = useState("");
+  const [localSaving, setLocalSaving] = useState(false);
+
+  const localBuildingItem = useMemo(() => {
+    if (source !== "local") return null;
+    return buildingsData?.[localIndex] ?? null;
+  }, [buildingsData, localIndex, source]);
+
+  const localFormInitialValues = useMemo(
+    () => mapLocalBuildingToFormValues(localBuildingItem),
+    [localBuildingItem],
+  );
 
   const [values, setValues] = useState({
     owner_name: "",
@@ -299,48 +288,39 @@ const BuildingEditScreen = ({navigation, route}) => {
 
   useEffect(() => {
     if (source !== "local") return;
-    const item = buildingsData?.[localIndex];
-    if (!item) return;
-    setLocalTempCode(item.temp_building_code ?? "");
-    setLocalTaxCode(item.tax_code ?? "");
-  }, [buildingsData, localIndex, source]);
+    if (!localBuildingItem) {
+      Alert.alert(getLabel("Error"), getLabel("Local building not found."), [
+        {text: getLabel("OK"), onPress: () => navigation.goBack()},
+      ]);
+    }
+  }, [source, localBuildingItem, getLabel, navigation]);
 
   useEffect(() => {
     if (source !== "wms" || !bin) return;
-    setLoading(true);
+    setLoadingEditData(true);
     (async () => {
       try {
         const res = await getBuildingEditData(bin);
-        const body = res?.data ?? {};
-        const data = body?.data ?? {};
-        setEditMeta(data);
-
-        const mergedRaw = {
-          ...(body ?? {}),
-          ...(data ?? {}),
-          ...(data?.building ?? {}),
-          ...(data?.buildingSurvey ?? {}),
-          ...(data?.editData ?? {}),
-          ...(data?.formData ?? {}),
-          ...(data?.values ?? {}),
-        };
-        const normalized = normalizeBuildingValues(mergedRaw);
+        const {building = {}, containment = []} = res?.data?.data ?? {};
+        setContainmentList(Array.isArray(containment) ? containment : []);
+        const normalized = normalizeBuildingValues(building);
         setValues(prev => ({...prev, ...normalized}));
       } catch (e) {
-        Alert.alert(getLabel("Error"), e?.response?.data?.message || getLabel("Failed to load edit data."));
+        const message = e?.response?.data?.message || getLabel("Failed to load edit data.");
+        if (e?.response?.status === 404) {
+          Alert.alert(getLabel("Error"), message, [
+            {text: getLabel("OK"), onPress: () => navigation.goBack()},
+          ]);
+        } else {
+          Alert.alert(getLabel("Error"), message);
+        }
       } finally {
-        setLoading(false);
+        setLoadingEditData(false);
       }
     })();
-  }, [bin, source, getLabel]);
+  }, [bin, source, getLabel, navigation]);
 
-  const yesNoOptions = useMemo(
-    () => [
-      {label: getLabel("YES"), value: "1"},
-      {label: getLabel("NO"), value: "0"},
-    ],
-    [getLabel],
-  );
+  const yesNoOptions = useMemo(() => getYesNoOptions(getLabel), [getLabel]);
 
   const genderOptions = useMemo(
     () => [
@@ -351,41 +331,38 @@ const BuildingEditScreen = ({navigation, route}) => {
     [getLabel],
   );
 
-  const options = useMemo(() => {
-    let usecat = {};
-    try {
-      usecat = typeof editMeta?.usecatgsJson === "string" ? JSON.parse(editMeta.usecatgsJson) : editMeta?.usecatgsJson || {};
-    } catch {}
-    return {
-      ward: toOptionArray(editMeta?.ward),
-      road: toOptionArray(editMeta?.road_code),
-      structure: toOptionArray(editMeta?.structure_type),
-      functional: toOptionArray(editMeta?.functional_use),
-      useCategory: toOptionArray(usecat?.[values.functional_use_id] || usecat?.[String(values.functional_use_id)] || []),
-      lic: toOptionArray(editMeta?.licNames),
-      waterSource: toOptionArray(editMeta?.water_source),
-      toiletConn: toOptionArray(editMeta?.toiletConnection),
-      defecation: toOptionArray(editMeta?.defecationPlace),
-      containment: toOptionArray(editMeta?.containment_id),
-      ctpt: toOptionArray(editMeta?.ctpt),
-      drain: toOptionArray(editMeta?.drain_code),
-      sewer: toOptionArray(editMeta?.sewer_code),
-      containmentList: Array.isArray(editMeta?.containment) ? editMeta.containment : [],
-    };
-  }, [editMeta, values.functional_use_id]);
+  const dropdowns = useMemo(
+    () => getDropdowns(values.functional_use_id),
+    [getDropdowns, values.functional_use_id],
+  );
 
-  const openSelect = async (title, list, current, onSelected) => {
-    const selected = list.find(i => String(i.value) === String(current));
-    const payload = await SheetManager.show(kSheets.selectionSheet, {
-      payload: {
-        title,
-        options: list,
-        selectedOption: selected,
-        initialVisibleLimit: INITIAL_OPTION_LIMIT,
-        searchable: true,
-      },
+  const options = useMemo(
+    () => ({
+      ward: dropdowns.ward,
+      road: dropdowns.roadCode,
+      structure: dropdowns.structureType,
+      functional: dropdowns.functionalUse,
+      useCategory: dropdowns.useCategory,
+      lic: dropdowns.licNames,
+      waterSource: dropdowns.waterSource,
+      toiletConn: dropdowns.toiletConnection,
+      defecation: dropdowns.defecationPlace,
+      ctpt: dropdowns.ctpt,
+      drain: dropdowns.drainCode,
+      sewer: dropdowns.sewerCode,
+    }),
+    [dropdowns],
+  );
+
+  const openSelect = async (title, list, current, onSelected, searchable = true) => {
+    const selected = await openSelectionSheet({
+      title,
+      options: list,
+      selectedValue: current,
+      searchable,
+      initialVisibleLimit: INITIAL_OPTION_LIMIT,
     });
-    if (payload?.value !== undefined) onSelected(String(payload.value));
+    if (selected !== undefined) onSelected(selected);
   };
 
   const validateWms = useCallback(() => {
@@ -411,7 +388,7 @@ const BuildingEditScreen = ({navigation, route}) => {
     req("water_source_id", "Water Source is required.");
     req("toilet_status", "Toilet Status is required.");
     req("building_associated_to", "Building Associated To is required.", showAssociatedBuilding);
-    req("lic_id", "LIC ID is required.", showLicId);
+    req("lic_id", "LIC Name is required.", showLicId);
     req("water_customer_id", "Water Customer ID is required.", showWaterPipe);
     req("distance_from_well", "Distance from well is required.", showWellDistance);
     req("toilet_count", "Toilet Count is required.", showToiletConnection);
@@ -472,14 +449,14 @@ const BuildingEditScreen = ({navigation, route}) => {
   const handleWmsSubmit = async () => {
     const errs = validateWms();
     if (Object.keys(errs).length) {
-    if (!localTempCode.trim()) return Alert.alert(getLabel("Error"), getLabel("Code is required."));
+      setFieldErrors(errs);
+      const first = Object.keys(errs)[0];
+      if (first) scrollToField(first);
       return;
     }
 
     try {
       setSaving(true);
-      const fileParts = [localTempCode.trim(), localTaxCode.trim()].filter(Boolean);
-      const newPath = `${RNFB.fs.dirs.DownloadDir}/${fileParts.join("_")}.kml`;
       const payload = {...values};
       delete payload.houseImageFile;
       if (values.houseImageFile) payload.house_image = values.houseImageFile;
@@ -519,28 +496,53 @@ const BuildingEditScreen = ({navigation, route}) => {
     }
   };
 
-  const handleLocalSubmit = async () => {
+  const handleLocalSave = async ({sanitizedValues, houseImageFile}) => {
     const item = buildingsData?.[localIndex];
-    if (!item) return Alert.alert(getLabel("Error"), getLabel("Local building not found."));
-    if (!localTempCode.trim() || !localTaxCode.trim())
-      return Alert.alert(getLabel("Error"), getLabel("Code and tax code are required."));
+    if (!item?.coords?.length) {
+      return Alert.alert(getLabel("Error"), getLabel("Local building not found."));
+    }
 
     try {
-      setSaving(true);
-      const xml = buildBuildingKml({tempBuildingCode: localTempCode, coords: item.coords});
-      const newPath = `${RNFB.fs.dirs.DownloadDir}/${localTempCode}_${localTaxCode}.kml`;
+      setLocalSaving(true);
+      const fileParts = [
+        sanitizedValues.temp_building_code,
+        sanitizedValues.tax_code,
+      ].filter(Boolean);
+      const fileBase = `${fileParts.join("_")}_${Date.now()}`;
+      const newPath = `${RNFB.fs.dirs.DownloadDir}/${fileBase}.kml`;
+      const xml = buildBuildingKml(item.coords, sanitizedValues.temp_building_code);
+
       const write = async () => {
         await RNFB.fs.writeFile(newPath, xml);
         if (item.path && item.path !== newPath) {
-          try { await RNFB.fs.unlink(item.path); } catch {}
+          try {
+            await RNFB.fs.unlink(item.path);
+          } catch {}
         }
-        dispatch(updateBuildingData({index: localIndex, patch: {temp_building_code: localTempCode, tax_code: localTaxCode, path: newPath}}));
-        Alert.alert(getLabel("Saved"), getLabel("Building updated."), [{text: getLabel("OK"), onPress: () => navigation.goBack()}]);
+        dispatch(
+          updateBuildingData({
+            index: localIndex,
+            patch: {
+              ...sanitizedValues,
+              coords: item.coords,
+              path: newPath,
+              kml_file_name: `${fileBase}.kml`,
+              house_image: houseImageFile ?? item.house_image ?? null,
+            },
+          }),
+        );
+        Alert.alert(getLabel("Saved"), getLabel("Building updated."), [
+          {text: getLabel("OK"), onPress: () => navigation.goBack()},
+        ]);
       };
-      if (Platform.constants.Release >= 13) await write();
-      else askStoragePermission(write);
+
+      if (Platform.constants.Release >= 13) {
+        await write();
+      } else {
+        askStoragePermission(write);
+      }
     } finally {
-      setSaving(false);
+      setLocalSaving(false);
     }
   };
 
@@ -553,47 +555,29 @@ const BuildingEditScreen = ({navigation, route}) => {
     } catch {}
   };
 
-  if (loading) {
-    return (
-      <View style={{flex: 1}}>
-        <Header title={getLabel("Edit Building")} />
-        <LoadingSpinner isVisible title={getLabel("Loading edit data")} />
-      </View>
-    );
-  }
+  const showWmsOverlay =
+    source === "wms" &&
+    (isInitialLoading || loadingEditData || (!isReady && metadataStatus === "failed"));
 
   if (source === "local") {
+    if (!localBuildingItem) {
+      return (
+        <View style={{flex: 1}}>
+          <Header title={getLabel("Edit Building")} />
+        </View>
+      );
+    }
+
     return (
       <View style={{flex: 1}}>
         <Header title={getLabel("Edit Building")} />
-        <ScrollView style={styles.container}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{getLabel("Edit Building Codes")}</Text>
-            <View onLayout={registerField("local_temp_building_code")}>
-              <TextInput
-                label={reqLabel("Temp Building Code")}
-                value={localTempCode}
-                error={!!fieldErrors.local_temp_building_code}
-                onChangeText={setLocalTempCode}
-              />
-              {showError("local_temp_building_code")}
-            </View>
-            <View onLayout={registerField("local_tax_code")}>
-              <TextInput
-                label={getLabel("Tax Code")}
-                value={localTaxCode}
-                error={!!fieldErrors.local_tax_code}
-                onChangeText={setLocalTaxCode}
-              />
-              {showError("local_tax_code")}
-            </View>
-          </View>
-          <View style={styles.buttonArea}>
-            <Button mode="contained" onPress={handleLocalSubmit} disabled={saving}>
-              {saving ? getLabel("Saving...") : getLabel("Save")}
-            </Button>
-          </View>
-        </ScrollView>
+        <BuildingDraftForm
+          initialValues={localFormInitialValues}
+          initialHouseImage={localBuildingItem.house_image ?? null}
+          onSave={handleLocalSave}
+          saveLabel={localSaving ? getLabel("Saving...") : getLabel("Save")}
+          saving={localSaving}
+        />
       </View>
     );
   }
@@ -602,6 +586,8 @@ const BuildingEditScreen = ({navigation, route}) => {
     <View style={{flex: 1}}>
       <Header title={getLabel("Edit Building")} />
       <ScrollView ref={scrollRef} style={styles.container}>
+        {isReady && !loadingEditData && (
+          <>
         {!!values.house_number && (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>
@@ -662,7 +648,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               error={!!fieldErrors.main_building}
               value={getOptionLabel(yesNoOptions, values.main_building)}
               onPress={() =>
-                openSelect(getLabel("Main Building"), yesNoOptions, values.main_building, v => setFieldValue("main_building", v))
+                openSelect(getLabel("Main Building"), yesNoOptions, values.main_building, v => setFieldValue("main_building", v), false)
               }
             />
             {showError("main_building")}
@@ -750,6 +736,16 @@ const BuildingEditScreen = ({navigation, route}) => {
             />
             {showError("floor_count")}
           </View>
+          <View onLayout={registerField("population_served")}>
+            <TextInput
+              label={reqLabel("Population Served")}
+              value={values.population_served}
+              error={!!fieldErrors.population_served}
+              keyboardType="numeric"
+              onChangeText={t => setFieldValue("population_served", numericOnly(t))}
+            />
+            {showError("population_served")}
+          </View>
           <View onLayout={registerField("functional_use_id")}>
             <SelectionInput
               label={reqLabel("Functional Use")}
@@ -798,16 +794,6 @@ const BuildingEditScreen = ({navigation, route}) => {
               onChangeText={t => setFieldValue("household_served", numericOnly(t))}
             />
             {showError("household_served")}
-          </View>
-          <View onLayout={registerField("population_served")}>
-            <TextInput
-              label={reqLabel("Population Served")}
-              value={values.population_served}
-              error={!!fieldErrors.population_served}
-              keyboardType="numeric"
-              onChangeText={t => setFieldValue("population_served", numericOnly(t))}
-            />
-            {showError("population_served")}
           </View>
           <View onLayout={registerField("male_population")}>
             <TextInput
@@ -879,7 +865,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               error={!!fieldErrors.low_income_hh}
               value={getOptionLabel(yesNoOptions, values.low_income_hh)}
               onPress={() =>
-                openSelect(getLabel("Low Income House"), yesNoOptions, values.low_income_hh, v => setFieldValue("low_income_hh", v))
+                openSelect(getLabel("Low Income House"), yesNoOptions, values.low_income_hh, v => setFieldValue("low_income_hh", v), false)
               }
             />
             {showError("low_income_hh")}
@@ -890,7 +876,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               error={!!fieldErrors.lic_status}
               value={getOptionLabel(yesNoOptions, values.lic_status)}
               onPress={() =>
-                openSelect(getLabel("Located in LIC?"), yesNoOptions, values.lic_status, v => setFieldValue("lic_status", v))
+                openSelect(getLabel("Located in LIC?"), yesNoOptions, values.lic_status, v => setFieldValue("lic_status", v), false)
               }
             />
             {showError("lic_status")}
@@ -898,7 +884,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           {showLicId && (
             <View onLayout={registerField("lic_id")}>
               <SelectionInput
-                label={reqLabel("LIC ID")}
+                label={reqLabel("LIC Name")}
                 error={!!fieldErrors.lic_id}
                 value={getOptionLabel(options.lic, values.lic_id)}
                 onPress={() => openSelect(getLabel("LIC Name"), options.lic, values.lic_id, v => setFieldValue("lic_id", v))}
@@ -952,7 +938,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               value={getOptionLabel(yesNoOptions, values.well_presence_status)}
               onPress={() =>
                 openSelect(getLabel("Well in Premises"), yesNoOptions, values.well_presence_status, v =>
-                  setFieldValue("well_presence_status", v),
+                  setFieldValue("well_presence_status", v), false,
                 )
               }
             />
@@ -988,7 +974,7 @@ const BuildingEditScreen = ({navigation, route}) => {
               error={!!fieldErrors.toilet_status}
               value={getOptionLabel(yesNoOptions, values.toilet_status)}
               onPress={() =>
-                openSelect(getLabel("Presence of Toilet"), yesNoOptions, values.toilet_status, v => setFieldValue("toilet_status", v))
+                openSelect(getLabel("Presence of Toilet"), yesNoOptions, values.toilet_status, v => setFieldValue("toilet_status", v), false)
               }
             />
             {showError("toilet_status")}
@@ -1068,6 +1054,7 @@ const BuildingEditScreen = ({navigation, route}) => {
                       yesNoOptions,
                       values.desludging_vehicle_accessible,
                       v => setFieldValue("desludging_vehicle_accessible", v),
+                      false,
                     )
                   }
                 />
@@ -1123,8 +1110,8 @@ const BuildingEditScreen = ({navigation, route}) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{getLabel("Containment Information")}</Text>
-          {options.containmentList.length ? (
-            options.containmentList.map((c, idx) => (
+          {containmentList.length ? (
+            containmentList.map((c, idx) => (
               <View key={`${c?.containment_id || idx}`} style={styles.containmentCard}>
                 <Text style={styles.containmentTitle}>
                   {getLabel("Containment ID:")} {String(c?.containment_id || c?.id || "-")}
@@ -1144,13 +1131,46 @@ const BuildingEditScreen = ({navigation, route}) => {
             <Text style={styles.helpText}>{getLabel("No containment information available.")}</Text>
           )}
         </View>
+          </>
+        )}
       </ScrollView>
+      {showWmsOverlay && (
+        <View style={styles.overlay}>
+          {isInitialLoading ? (
+            <>
+              <ActivityIndicator size="large" />
+              <Text style={styles.overlayText}>{getLabel("Loading form options")}</Text>
+            </>
+          ) : loadingEditData ? (
+            <>
+              <ActivityIndicator size="large" />
+              <Text style={styles.overlayText}>{getLabel("Loading edit data")}</Text>
+            </>
+          ) : (
+            <>
+              <HelperText type="error">{metadataError}</HelperText>
+              <Button mode="outlined" onPress={retry}>
+                {getLabel("Retry")}
+              </Button>
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {flex: 1, padding: 12},
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    gap: 12,
+  },
+  overlayText: {marginTop: 8, fontSize: 16, textAlign: "center"},
   banner: {backgroundColor: "#12A6C4", borderRadius: 4, padding: 10, marginBottom: 10},
   bannerText: {color: "#fff", fontWeight: "700"},
   section: {gap: 8, marginBottom: 14},

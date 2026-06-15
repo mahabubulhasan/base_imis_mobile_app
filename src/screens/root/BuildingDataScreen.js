@@ -17,6 +17,7 @@ import VerticalSpacer from "../../components/common/VerticalSpacer";
 import { COLORS, SPACINGS } from "../../core/theme";
 import { removeBuildingData, updateBuildingData } from "../../store/slices/map.slice";
 import { buildSaveBuildingFormData } from "../../service/building_service";
+import { validateBuildingDraft } from "../../helpers/buildingDraft";
 
 import { useState } from "react";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -61,6 +62,36 @@ const BuildingDataScreen = ({ navigation }) => {
   };
 
   const onUpload = async (item, index) => {
+    // Guard legacy/incomplete drafts that predate form validation: catch missing
+    // required fields here so they surface a clear message instead of a server 422
+    // (e.g. "Structure type is required in payload_json").
+    const validationErrors = validateBuildingDraft(item);
+    if (!item?.path) {
+      validationErrors.kml =
+        "Building outline (KML) file is missing. Please redraw the building.";
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstKey = Object.keys(validationErrors)[0];
+      const firstMessage = validationErrors[firstKey];
+      dispatch(
+        updateBuildingData({
+          index,
+          patch: {
+            upload_status: "failed",
+            last_error: `${getLabel(firstKey)}: ${getLabel(firstMessage)}`,
+            field_errors: validationErrors,
+          },
+        })
+      );
+      Alert.alert(
+        getLabel("Error"),
+        `${getLabel(firstKey)}: ${getLabel(firstMessage)}`,
+        [{ text: getLabel("OK") }]
+      );
+      return;
+    }
+
     setLoading(true);
     dispatch(
       updateBuildingData({
@@ -92,8 +123,10 @@ const BuildingDataScreen = ({ navigation }) => {
         console.log("res", res);
 
         const { status, success, errors, message } = res || {};
+        const isUploadSuccess =
+          success === true || status === 200 || status === "200";
 
-        if (status || success) {
+        if (isUploadSuccess && !errors) {
           Alert.alert(getLabel("Uploaded"), message, [
             {
               text: getLabel("OK"), // Using "CANCEL" from your provided list

@@ -5,6 +5,7 @@ import { Checkbox, Text } from "react-native-paper";
 import { useSelector } from "react-redux";
 
 import { COLORS } from "../../core/theme";
+import { ZOOM_LAYER_RULES } from "../../core/constants/wmsLayers";
 
 const WmsView = ({
   mode,
@@ -16,9 +17,21 @@ const WmsView = ({
   isWmsOn,
   isRoadWmsOn,
   isWardWmsOn,
+  currentZoom,
+  primaryLayerKey,
 }) => {
   const { contentsLabel } = useSelector((state) => state.auth);
   const getLabel = (key) => contentsLabel?.[key] || key;
+
+  const primaryKey =
+    primaryLayerKey ?? (mode === "Building" ? "building" : "containment");
+  const primaryMinZ = ZOOM_LAYER_RULES[primaryKey]?.minZ;
+  const showZoomHint =
+    currentZoom != null &&
+    primaryMinZ != null &&
+    currentZoom < primaryMinZ &&
+    isWmsOn;
+
   return (
     <Portal>
       <Dialog
@@ -31,6 +44,12 @@ const WmsView = ({
           <Dialog.Title style={styles.title}>
             {getLabel("WMS layers")}
           </Dialog.Title>
+
+          {showZoomHint ? (
+            <Text style={styles.hint}>
+              {getLabel("Zoom in for best layer detail")}
+            </Text>
+          ) : null}
 
           <Divider />
           <TouchableOpacity
@@ -80,6 +99,12 @@ const WmsView = ({
 const styles = StyleSheet.create({
   title: {
     textAlign: "center",
+  },
+  hint: {
+    textAlign: "center",
+    marginBottom: 8,
+    color: COLORS.dark,
+    fontSize: 14,
   },
   checkboxRow: {
     flexDirection: "row",
