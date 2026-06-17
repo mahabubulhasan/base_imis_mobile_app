@@ -1,9 +1,10 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Alert, StyleSheet, View } from "react-native";
-import React, { useRef, useEffect, useState } from "react";
-import MapView, { Marker, PROVIDER_GOOGLE, WMSTile } from "react-native-maps";
+import { Alert, InteractionManager, StyleSheet, View } from "react-native";
+import React, { useCallback, useMemo, useRef, useEffect, useState } from "react";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import { INITIAL_LOCATION } from "../../core/constants/map";
+import { MAP_SERVICE_BOUNDS } from "../../core/constants/wmsLayers";
 
 import {
   storeContainmentCoords,
@@ -17,14 +18,10 @@ import MapInfoModal from "../../components/containment_map/MapInfoModal";
 import SaveDataModal from "../../components/containment_map/SaveDataModal";
 
 import WmsView from "../../components/common/WmsView";
-import {
-  getContainmentWmslink,
-  getRoadWmsLink,
-  getWardWmsLink,
-} from "../../service/building_service";
-import { ROUTES } from "../../core/constants/routes";
+import WmsLayers from "../../components/map/WmsLayers";
+import useWmsMapLayers from "../../hooks/useWmsMapLayers";
+import { fetchWmsUrlsForScreen } from "../../store/thunks/fetchWmsUrlsForScreen";
 import IonIcon from "react-native-vector-icons/Ionicons";
-import { resetToken } from "../../store/slices/auth.slice";
 import { COLORS } from "../../core/theme";
 
 const BuildingMapScreen = ({ navigation }) => {
@@ -34,76 +31,47 @@ const BuildingMapScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
 
-  const { containmentCoords, mapType } = useSelector((state) => state.map);
-  const [wmslinks, setWmslink] = useState(
-    "***REMOVED***"
+  const { containmentCoords, mapType, wmsUrls } = useSelector(
+    (state) => state.map
   );
-  const [showWmsLink, setShowWmsLink] = useState(false);
+  const [showWmsLink, setShowWmsLink] = useState(true);
   const [showWmsDialog, setShowWmsDialog] = useState(false);
-
-  const [roadWmsLink, setRoadWmsLink] = useState(
-    "***REMOVED***"
-  );
-
-  const [wardWmsLink, setWardWmsLink] = useState(
-    "***REMOVED***"
-  );
-
-  const [roadWms, setRoadWms] = useState(false);
+  const [roadWms, setRoadWms] = useState(true);
   const [wardWms, setWardWms] = useState(true);
+  const [forceLayers, setForceLayers] = useState({});
+  const [mapMounted, setMapMounted] = useState(false);
 
-  const getWmsLink = () => {
-    getContainmentWmslink()
-      .then((response) => {
-        const { success, data, error } = response.data;
+  const layerVisibility = useMemo(
+    () => ({
+      containment: showWmsLink,
+      road: roadWms,
+      ward: wardWms,
+    }),
+    [showWmsLink, roadWms, wardWms]
+  );
 
-        setWmslink(data.wmslinks);
-      })
-      .catch((err) => {
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
+  const { stagedLayers, handleRegionChangeComplete, zoom } = useWmsMapLayers({
+    screenKey: "containment",
+    mapMounted,
+    wmsUrls,
+    layerVisibility,
+    forceLayers,
+    debugLabel: "containment",
+  });
 
-  const roadLink = () => {
-    getRoadWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        setRoadWmsLink(data.wmslinks);
-      })
-      .catch((err) => {
-        console.log("Error!!", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const wardLink = () => {
-    getWardWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        setWardWmsLink(data.wmslinks);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
+  const toggleLayer = useCallback((layerKey, isOn, setter) => {
+    const next = !isOn;
+    setter(next);
+    setForceLayers((prev) => {
+      const updated = { ...prev };
+      if (next) {
+        updated[layerKey] = true;
+      } else {
+        delete updated[layerKey];
+      }
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     askLocationPermission(async () => {
@@ -115,18 +83,20 @@ const BuildingMapScreen = ({ navigation }) => {
       });
     });
 
-    getWmsLink();
-    roadLink();
-    wardLink();
+    dispatch(fetchWmsUrlsForScreen("containment"));
 
     return () => dispatch(removeContainmentCoords());
   }, []);
 
-  const handlePressOnMap = (event) => {
-    // take latlng out from event object
-    const { latitude, longitude } = event.nativeEvent.coordinate;
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapMounted(true);
+    });
+    return () => task.cancel();
+  }, [location]);
 
-    // animate to the same latlng and push to coords array state
+  const handlePressOnMap = (event) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
     dispatch(storeContainmentCoords({ latitude, longitude }));
   };
 
@@ -163,14 +133,15 @@ const BuildingMapScreen = ({ navigation }) => {
       <MapView
         onLayout={() =>
           mapRef.current.setMapBoundaries(
-            { latitude: 27.669721, longitude: 85.337964 },
-            { latitude: 27.589734, longitude: 85.416529 }
+            MAP_SERVICE_BOUNDS.northEast,
+            MAP_SERVICE_BOUNDS.southWest
           )
         }
         ref={mapRef}
         style={styles.map}
         initialRegion={location}
         onPress={handlePressOnMap}
+        onRegionChangeComplete={handleRegionChangeComplete}
         provider={PROVIDER_GOOGLE}
         showsUserLocation
         zoomControlEnabled
@@ -190,31 +161,12 @@ const BuildingMapScreen = ({ navigation }) => {
           />
         )}
 
-        {showWmsLink && (
-          <WMSTile
-            urlTemplate={wmslinks}
-            zIndex={1}
-            opacity={0.5}
-            tileSize={512}
-          />
-        )}
-
-        {roadWms && (
-          <WMSTile
-            urlTemplate={roadWmsLink}
-            zIndex={1}
-            opacity={0.5}
-            tileSize={512}
-          />
-        )}
-        {wardWms && (
-          <WMSTile
-            urlTemplate={wardWmsLink}
-            zIndex={1}
-            opacity={0.5}
-            tileSize={512}
-          />
-        )}
+        <WmsLayers
+          debugLabel="containment"
+          wmsUrls={wmsUrls}
+          eligibleLayers={stagedLayers}
+          layerVisibility={layerVisibility}
+        />
       </MapView>
       <MapInfoButton onPress={setModalVisible} />
 
@@ -229,12 +181,14 @@ const BuildingMapScreen = ({ navigation }) => {
         visible={showWmsDialog}
         mode="Containment"
         onDismiss={() => setShowWmsDialog(false)}
-        onWmsPress={() => setShowWmsLink(!showWmsLink)}
-        onRoadWmsPress={() => setRoadWms(!roadWms)}
-        onWardWmsPress={() => setWardWms(!wardWms)}
+        onWmsPress={() => toggleLayer("containment", showWmsLink, setShowWmsLink)}
+        onRoadWmsPress={() => toggleLayer("road", roadWms, setRoadWms)}
+        onWardWmsPress={() => toggleLayer("ward", wardWms, setWardWms)}
         isWmsOn={showWmsLink}
         isRoadWmsOn={roadWms}
         isWardWmsOn={wardWms}
+        currentZoom={zoom}
+        primaryLayerKey="containment"
       />
 
       <MapInfoModal

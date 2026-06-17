@@ -28,12 +28,14 @@ export const BUILDING_FORM_INITIAL_VALUES = {
   sewer_code: "",
   drain_code: "",
   house_number: "",
+  household_served: "",
   population_served: "",
   house_locality: "",
 };
 
 const REQUIRED_KEYS = [
   "temp_building_code",
+  "tax_code",
   "collected_date",
   "ward",
   "road_code",
@@ -43,6 +45,7 @@ const REQUIRED_KEYS = [
   "functional_use_id",
   "water_source_id",
   "toilet_status",
+  "household_served",
   "population_served",
 ];
 
@@ -90,11 +93,18 @@ export const validateBuildingDraft = (values) => {
     }
   }
 
-  if (
-    !isEmpty(values.functional_use_id) &&
-    isEmpty(values.use_category_id)
-  ) {
-    errors.use_category_id = "Use category is required for selected functional use.";
+  if (!isEmpty(values.household_served)) {
+    const householdServed = Number(values.household_served);
+    if (Number.isNaN(householdServed) || householdServed < 1) {
+      errors.household_served = "Household served must be a number >= 1.";
+    }
+  }
+
+  if (!isEmpty(values.population_served)) {
+    const populationServed = Number(values.population_served);
+    if (Number.isNaN(populationServed) || populationServed < 1) {
+      errors.population_served = "Population served must be a number >= 1.";
+    }
   }
 
   const mainBuilding = normalizeBoolean01(values.main_building, "1");
@@ -106,11 +116,7 @@ export const validateBuildingDraft = (values) => {
   }
 
   if (licStatus === "1" && isEmpty(values.lic_id)) {
-    errors.lic_id = "LIC id is required when LIC status is yes.";
-  }
-
-  if (String(values.water_source_id) === "1" && isEmpty(values.watersupply_pipe_code)) {
-    errors.watersupply_pipe_code = "Water supply pipe code is required for source id 1.";
+    errors.lic_id = "LIC Name is required when LIC status is yes.";
   }
 
   if (toiletStatus === "1") {
@@ -120,6 +126,18 @@ export const validateBuildingDraft = (values) => {
     if (isEmpty(values.sanitation_system_id)) {
       errors.sanitation_system_id =
         "Sanitation system is required when toilet status is yes.";
+    }
+    if (!isEmpty(values.household_with_private_toilet)) {
+      const privateHouseholds = Number(values.household_with_private_toilet);
+      const householdServed = Number(values.household_served);
+      if (
+        !Number.isNaN(privateHouseholds) &&
+        !Number.isNaN(householdServed) &&
+        privateHouseholds > householdServed
+      ) {
+        errors.household_with_private_toilet =
+          "The household with private toilet must be less than or equal to household served.";
+      }
     }
   } else {
     if (isEmpty(values.defecation_place)) {
@@ -164,7 +182,7 @@ export const getVisibleConditionalFields = (values) => {
   return {
     building_associated_to: mainBuilding === "0",
     lic_id: licStatus === "1",
-    watersupply_pipe_code: String(values.water_source_id) === "1",
+    watersupply_pipe_code: String(values.water_source_id) === "5",
     toilet_count: toiletStatus === "1",
     household_with_private_toilet: toiletStatus === "1",
     population_with_private_toilet: toiletStatus === "1",
@@ -198,3 +216,43 @@ export const sanitizeBuildingDraftByVisibility = (values) => {
 
   return next;
 };
+
+export function mapLocalBuildingToFormValues(buildingItem) {
+  const defaults = {...BUILDING_FORM_INITIAL_VALUES};
+
+  if (!buildingItem) {
+    return defaults;
+  }
+
+  const mapped = {...defaults};
+
+  Object.keys(defaults).forEach(key => {
+    const value = buildingItem[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      mapped[key] = String(value);
+    }
+  });
+
+  if (buildingItem.temp_building_code) {
+    mapped.temp_building_code = String(buildingItem.temp_building_code);
+  }
+
+  if (buildingItem.tax_code) {
+    mapped.tax_code = String(buildingItem.tax_code);
+  }
+
+  mapped.main_building = normalizeBoolean01(
+    buildingItem.main_building ?? mapped.main_building,
+    mapped.main_building,
+  );
+  mapped.lic_status = normalizeBoolean01(
+    buildingItem.lic_status ?? mapped.lic_status,
+    mapped.lic_status,
+  );
+  mapped.toilet_status = normalizeBoolean01(
+    buildingItem.toilet_status ?? mapped.toilet_status,
+    mapped.toilet_status,
+  );
+
+  return mapped;
+}

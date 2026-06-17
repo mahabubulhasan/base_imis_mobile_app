@@ -1,111 +1,83 @@
-import React, { useRef, useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { InteractionManager, StyleSheet, View } from "react-native";
 import { INITIAL_LOCATION } from "../../core/constants/map";
 
 import { useDispatch, useSelector } from "react-redux";
-import MapView, { Polygon, PROVIDER_GOOGLE, WMSTile } from "react-native-maps";
+import MapView, { Polygon, PROVIDER_GOOGLE } from "react-native-maps";
 import { COLORS } from "../../core/theme";
-import {
-  getBuildingWmslink,
-  getRoadWmsLink,
-  getWardWmsLink,
-} from "../../service/building_service";
-import { ROUTES } from "../../core/constants/routes";
-import { resetToken } from "../../store/slices/auth.slice";
 import { FAB } from "react-native-paper";
 import IonIcon from "react-native-vector-icons/Ionicons";
 import WmsView from "../../components/common/WmsView";
+import WmsLayers from "../../components/map/WmsLayers";
+import useWmsMapLayers from "../../hooks/useWmsMapLayers";
+import { fetchWmsUrlsForScreen } from "../../store/thunks/fetchWmsUrlsForScreen";
 import { Header } from "../../components/headers";
 import { getCenter } from "geolib";
 
 const KmlViewerMapScreen = ({ route, navigation }) => {
   const mapRef = useRef();
   const [location, setLocation] = useState(INITIAL_LOCATION);
-  const { mapType } = useSelector((state) => state.map);
+  const { mapType, wmsUrls } = useSelector((state) => state.map);
   const { contentsLabel } = useSelector((state) => state.auth);
   const { item } = route.params;
-  console.log("item", item);
   const getLabel = (key) => contentsLabel?.[key] || key;
   const dispatch = useDispatch();
 
-  const [wmsLink, setWmslink] = useState("");
-  const [roadWmsLink, setRoadWmsLink] = useState("");
-  const [wardWmsLink, setWardWmsLink] = useState("");
   const [showWmsDialog, setShowWmsDialog] = useState(false);
-  const [showWmsLink, setShowWmsLink] = useState(false);
-  const [roadWms, setRoadWms] = useState(false);
-  const [wardWms, setWardWms] = useState(false);
+  const [showWmsLink, setShowWmsLink] = useState(true);
+  const [roadWms, setRoadWms] = useState(true);
+  const [wardWms, setWardWms] = useState(true);
+  const [forceLayers, setForceLayers] = useState({});
+  const [mapMounted, setMapMounted] = useState(false);
 
-  const getWmsLink = () => {
-    getBuildingWmslink()
-      .then((response) => {
-        const { success, data, error } = response.data;
+  const layerVisibility = useMemo(
+    () => ({
+      building: showWmsLink,
+      road: roadWms,
+      ward: wardWms,
+    }),
+    [showWmsLink, roadWms, wardWms]
+  );
 
-        console.log("wms", response.data.baseUrl + data.buildings);
+  const { stagedLayers, handleRegionChangeComplete } = useWmsMapLayers({
+    screenKey: "kml",
+    mapMounted,
+    wmsUrls,
+    layerVisibility,
+    forceLayers,
+    debugLabel: "kml",
+  });
 
-        setWmslink(response.data.baseUrl + data.buildings);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const roadLink = () => {
-    getRoadWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        console.log("road", response.data);
-
-        setRoadWmsLink(response.data.baseUrl + data.roads);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const wardLink = () => {
-    getWardWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        setWardWmsLink(response.data.baseUrl + data.wards);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
+  const toggleLayer = useCallback((layerKey, isOn, setter) => {
+    const next = !isOn;
+    setter(next);
+    setForceLayers((prev) => {
+      const updated = { ...prev };
+      if (next) {
+        updated[layerKey] = true;
+      } else {
+        delete updated[layerKey];
+      }
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     getLocation();
-    // setLocation({
-    //   ...location,
-    //   latitude: item.coords[0].latitude,
-    //   longitude: item.coords[0].longitude,
-    // });
-
-    getWmsLink();
-    roadLink();
-    wardLink();
+    dispatch(fetchWmsUrlsForScreen("kml"));
   }, []);
+
+  useEffect(() => {
+    if (!location) {
+      return undefined;
+    }
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapMounted(true);
+    });
+
+    return () => task.cancel();
+  }, [location]);
   const getLocation = (async) => {
     try {
       if (item) {
@@ -135,6 +107,7 @@ const KmlViewerMapScreen = ({ route, navigation }) => {
             style={styles.map}
             initialRegion={location}
             region={location}
+            onRegionChangeComplete={handleRegionChangeComplete}
             provider={PROVIDER_GOOGLE}
             showsUserLocation
             zoomControlEnabled
@@ -161,30 +134,12 @@ const KmlViewerMapScreen = ({ route, navigation }) => {
                 fillColor="rgba(45,87,250,0.07)"
               />
             )}
-            {showWmsLink && (
-              <WMSTile
-                urlTemplate={wmsLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
-            {roadWms && (
-              <WMSTile
-                urlTemplate={roadWmsLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
-            {wardWms && (
-              <WMSTile
-                urlTemplate={wardWmsLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
+            <WmsLayers
+              debugLabel="kml"
+              wmsUrls={wmsUrls}
+              eligibleLayers={stagedLayers}
+              layerVisibility={layerVisibility}
+            />
           </MapView>
           <FAB
             animated={false}
@@ -196,9 +151,9 @@ const KmlViewerMapScreen = ({ route, navigation }) => {
             visible={showWmsDialog}
             mode="Building"
             onDismiss={() => setShowWmsDialog(false)}
-            onWmsPress={() => setShowWmsLink(!showWmsLink)}
-            onRoadWmsPress={() => setRoadWms(!roadWms)}
-            onWardWmsPress={() => setWardWms(!wardWms)}
+            onWmsPress={() => toggleLayer("building", showWmsLink, setShowWmsLink)}
+            onRoadWmsPress={() => toggleLayer("road", roadWms, setRoadWms)}
+            onWardWmsPress={() => toggleLayer("ward", wardWms, setWardWms)}
             isWmsOn={showWmsLink}
             isRoadWmsOn={roadWms}
             isWardWmsOn={wardWms}

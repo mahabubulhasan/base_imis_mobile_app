@@ -2,11 +2,28 @@ import {createSlice} from '@reduxjs/toolkit';
 import dayjs from 'dayjs';
 import {MAP_TYPES} from '../../core/constants/map';
 
+const emptyWmsUrls = {
+  building: null,
+  road: null,
+  ward: null,
+  containment: null,
+  sewer: null,
+};
+
 const mapSlice = createSlice({
   name: 'map',
   initialState: {
     buildingCoords: [],
     buildingsData: [],
+    buildingFormMetadata: null,
+    buildingFormMetadataStatus: 'idle',
+    buildingFormMetadataError: null,
+    buildingFormMetadataFetchedAt: null,
+    wmsUrls: {...emptyWmsUrls},
+    wmsUrlsFetchedAt: null,
+    wmsUrlsFetchedAtByLayer: {},
+    wmsUrlsStatus: 'idle',
+    wmsUrlsError: null,
     containmentCoords: null,
     containmentData: [],
     mapType: MAP_TYPES.STANDARD,
@@ -42,6 +59,74 @@ const mapSlice = createSlice({
 
     resetBuildingCoords: state => {
       state.buildingCoords = [];
+    },
+
+    setBuildingFormMetadataLoading: state => {
+      state.buildingFormMetadataStatus = 'loading';
+      state.buildingFormMetadataError = null;
+    },
+
+    setBuildingFormMetadataSuccess: (state, {payload}) => {
+      state.buildingFormMetadata = payload;
+      state.buildingFormMetadataStatus = 'succeeded';
+      state.buildingFormMetadataError = null;
+      state.buildingFormMetadataFetchedAt = new Date().toISOString();
+    },
+
+    setWmsUrlsLoading: state => {
+      state.wmsUrlsStatus = 'loading';
+      state.wmsUrlsError = null;
+    },
+
+    setWmsUrlsSuccess: (state, {payload}) => {
+      const fetchedAt = payload.fetchedAt ?? new Date().toISOString();
+
+      state.wmsUrls = {
+        building: payload.building ?? state.wmsUrls.building,
+        road: payload.road ?? state.wmsUrls.road,
+        ward: payload.ward ?? state.wmsUrls.ward,
+        containment: payload.containment ?? state.wmsUrls.containment,
+        sewer: payload.sewer ?? state.wmsUrls.sewer,
+      };
+      state.wmsUrlsFetchedAt = fetchedAt;
+      state.wmsUrlsStatus = 'succeeded';
+      state.wmsUrlsError = null;
+
+      if (!state.wmsUrlsFetchedAtByLayer) {
+        state.wmsUrlsFetchedAtByLayer = {};
+      }
+
+      Object.keys(payload).forEach(key => {
+        if (key === 'fetchedAt' || key === 'fetchedAtByLayer') {
+          return;
+        }
+        if (payload[key] != null) {
+          state.wmsUrlsFetchedAtByLayer[key] =
+            payload.fetchedAtByLayer?.[key] ?? fetchedAt;
+        }
+      });
+    },
+
+    setWmsUrlsFailed: (state, {payload}) => {
+      state.wmsUrlsStatus = 'failed';
+      state.wmsUrlsError = payload ?? 'Failed to load map layer URLs.';
+    },
+
+    clearMapCache: state => {
+      state.wmsUrls = {...emptyWmsUrls};
+      state.wmsUrlsFetchedAt = null;
+      state.wmsUrlsFetchedAtByLayer = {};
+      state.wmsUrlsStatus = 'idle';
+      state.wmsUrlsError = null;
+      state.buildingFormMetadata = null;
+      state.buildingFormMetadataStatus = 'idle';
+      state.buildingFormMetadataError = null;
+      state.buildingFormMetadataFetchedAt = null;
+    },
+
+    setBuildingFormMetadataFailed: (state, {payload}) => {
+      state.buildingFormMetadataStatus = 'failed';
+      state.buildingFormMetadataError = payload ?? 'Failed to load form metadata.';
     },
 
     toogleMapType: state => {
@@ -146,6 +231,13 @@ export const {
   updateBuildingCoord,
   addToBuildingCoords,
   resetBuildingCoords,
+  setBuildingFormMetadataLoading,
+  setBuildingFormMetadataSuccess,
+  setBuildingFormMetadataFailed,
+  setWmsUrlsLoading,
+  setWmsUrlsSuccess,
+  setWmsUrlsFailed,
+  clearMapCache,
   storeContainmentCoords,
   removeContainmentCoords,
   addBuildingsData,

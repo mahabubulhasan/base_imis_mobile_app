@@ -1,4 +1,6 @@
-import { BUILDINGS_LAYER_PROPERTY_NAMES } from "./buildings_layer_property_names";
+import {geometryToCoords} from '../helpers/geo';
+
+export {geometryToCoords};
 
 function splitUrl(href) {
   if (!href || typeof href !== "string") return { base: "", queryString: "" };
@@ -66,33 +68,13 @@ function lonLatTo3857({ longitude, latitude }) {
   return { x, y };
 }
 
-export function geometryToCoords(geometry) {
-  if (!geometry) return null;
-
-  const type = geometry.type;
-  const coordinates = geometry.coordinates;
-
-  const toLatLng = ([x, y]) => ({ longitude: x, latitude: y });
-
-  if (type === "Polygon") {
-    const ring = coordinates?.[0];
-    return Array.isArray(ring) ? ring.map(toLatLng) : null;
-  }
-
-  if (type === "MultiPolygon") {
-    const ring = coordinates?.[0]?.[0];
-    return Array.isArray(ring) ? ring.map(toLatLng) : null;
-  }
-
-  return null;
-}
-
 export async function getWmsFeatureInfo({
   wmsTileTemplate,
   coordinate,
   region,
   mapSizePx,
   pointPx,
+  propertyNames,
 }) {
   if (!wmsTileTemplate || !coordinate || !region || !mapSizePx || !pointPx) {
     return null;
@@ -145,10 +127,14 @@ export async function getWmsFeatureInfo({
     ["height", String(heightPx)],
     ["info_format", "application/json"],
     ["FEATURE_COUNT", "1"],
-    ["PROPERTYNAME", BUILDINGS_LAYER_PROPERTY_NAMES],
     ["FORMAT", format],
     ["TRANSPARENT", "true"],
   ];
+
+
+  if (typeof propertyNames === "string" && propertyNames.trim() !== "") {
+    pairs.push(["PROPERTYNAME", propertyNames]);
+  }
 
   if (version.startsWith("1.3")) {
     pairs.push(
@@ -167,13 +153,24 @@ export async function getWmsFeatureInfo({
   const infoUrlString = `${base}?${buildQueryStringFromPairs(pairs)}`;
 
   const resp = await fetch(infoUrlString);
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    console.warn(
+      `[WMS][GetFeatureInfo] HTTP ${resp.status}: ${body.slice(0, 300)}`
+    );
+    return null;
+  }
 
   const text = await resp.text();
   let json;
   try {
     json = JSON.parse(text);
   } catch (e) {
+    // GeoServer reports invalid requests as an XML/HTML ServiceException with a
+    // 200 status, which lands here. Surface it so silent failures are visible.
+    console.warn(
+      `[WMS][GetFeatureInfo] non-JSON response: ${text.slice(0, 300)}`
+    );
     return null;
   }
   const feature = json?.features?.[0];

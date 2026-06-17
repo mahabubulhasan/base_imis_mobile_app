@@ -36,6 +36,9 @@ import { ROUTES } from "../../core/constants/routes";
 
 import VerticalSpacer from "../../components/common/VerticalSpacer";
 import { setValue } from "../../helpers/localstorage";
+import { fetchBuildingFormMetadata } from "../../store/thunks/fetchBuildingFormMetadata";
+import { fetchWmsUrlsIfNeeded } from "../../store/thunks/fetchWmsUrlsIfNeeded";
+import { BASE_WMS_LAYERS } from "../../store/thunks/fetchWmsUrlsForScreen";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Spacer } from "../../components/Layout";
@@ -111,6 +114,8 @@ const SigninScreen = ({ navigation }) => {
           dispatch(storePermissions(data?.permissions));
           dispatch(storeAccount(data));
           dispatch(storeToken(token));
+          dispatch(fetchWmsUrlsIfNeeded({ layers: BASE_WMS_LAYERS }));
+          dispatch(fetchBuildingFormMetadata());
 
           if (rememberMe) {
             dispatch(storeUsername(email));

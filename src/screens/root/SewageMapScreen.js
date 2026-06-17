@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
-import { Marker, WMSTile } from "react-native-maps";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, InteractionManager, Platform, StyleSheet, View } from "react-native";
+import { Marker } from "react-native-maps";
 import { FAB, Text } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useDispatch, useSelector } from "react-redux";
@@ -19,12 +19,10 @@ import {
 } from "../../store/slices/map.slice";
 
 import MapInfoModal from "../../components/buildings_map/MapInfoModal";
-import {
-  getBuildingWmslink,
-  getRoadWmsLink,
-  getSewerWmsLink,
-  getWardWmsLink,
-} from "../../service/building_service";
+import WmsLayers from "../../components/map/WmsLayers";
+import useWmsMapLayers from "../../hooks/useWmsMapLayers";
+import { fetchWmsUrlsForScreen } from "../../store/thunks/fetchWmsUrlsForScreen";
+import { MAP_SERVICE_BOUNDS } from "../../core/constants/wmsLayers";
 
 import IonIcon from "react-native-vector-icons/Ionicons";
 
@@ -45,28 +43,48 @@ const SewageMapScreen = ({ navigation }) => {
   const [location, setLocation] = useState();
   const [isInfoModalVisible, setisInfoModalVisible] = useState(false);
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
-  const { buildingCoords, mapType } = useSelector((state) => state.map);
+  const { buildingCoords, wmsUrls } = useSelector((state) => state.map);
 
-  const [wmslinks, setWmslink] = useState("***REMOVED***");
-  // ***REMOVED***,
-  const [showWmsLink, setShowWmsLink] = useState(false);
+  const [showWmsLink, setShowWmsLink] = useState(true);
   const [showWmsDialog, setShowWmsDialog] = useState(false);
+  const [roadWms, setRoadWms] = useState(true);
+  const [wardWms, setWardWms] = useState(true);
+  const [sewerWMS, setSewerWMS] = useState(true);
+  const [forceLayers, setForceLayers] = useState({});
+  const [mapMounted, setMapMounted] = useState(false);
 
-  const [roadWmsLink, setRoadWmsLink] = useState(
-    "***REMOVED***"
+  const layerVisibility = useMemo(
+    () => ({
+      building: showWmsLink,
+      road: roadWms,
+      ward: wardWms,
+      sewer: sewerWMS,
+    }),
+    [showWmsLink, roadWms, wardWms, sewerWMS]
   );
 
-  const [wardWmsLink, setWardWmsLink] = useState(
-    "***REMOVED***"
-  );
+  const { stagedLayers, handleRegionChangeComplete, zoom } = useWmsMapLayers({
+    screenKey: "sewage",
+    mapMounted,
+    wmsUrls,
+    layerVisibility,
+    forceLayers,
+    debugLabel: "sewer",
+  });
 
-  const [sewerWMSLink, setSewerWMSLink] = useState(
-    "***REMOVED***"
-  );
-
-  const [roadWms, setRoadWms] = useState(false);
-  const [wardWms, setWardWms] = useState(false);
-  const [sewerWMS, setSewerWMS] = useState(false);
+  const toggleLayer = useCallback((layerKey, isOn, setter) => {
+    const next = !isOn;
+    setter(next);
+    setForceLayers((prev) => {
+      const updated = { ...prev };
+      if (next) {
+        updated[layerKey] = true;
+      } else {
+        delete updated[layerKey];
+      }
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     if (permissionStatus && locationEnabled) {
@@ -77,18 +95,25 @@ const SewageMapScreen = ({ navigation }) => {
   }, [permissionStatus, locationEnabled]);
 
   useEffect(() => {
-    askLocationPermission(async () => {
-      if (Platform.constants.Release < 13) {
-        askStoragePermission();
-      }
+    if (Platform.constants.Release < 13) {
+      askStoragePermission();
+    }
+    dispatch(fetchWmsUrlsForScreen("sewage"));
+    return () => dispatch(resetBuildingCoords());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!location) {
+      setMapMounted(false);
+      return undefined;
+    }
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapMounted(true);
     });
 
-    getWmsLink();
-    roadLink();
-    wardLink();
-    sewerLink();
-    // return () => dispatch(resetBuildingCoords());
-  }, []);
+    return () => task.cancel();
+  }, [location]);
 
   const fetchLocation = async () => {
     try {
@@ -100,102 +125,6 @@ const SewageMapScreen = ({ navigation }) => {
       console.log("Error", error);
     }
   };
-  const getWmsLink = () => {
-    getBuildingWmslink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        console.log("wms", response.data.baseUrl + data.buildings);
-
-        setWmslink(response.data.baseUrl + data.buildings);
-        setShowWmsLink(true);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const roadLink = () => {
-    getRoadWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        console.log("road", response.data.baseUrl + data.roads);
-
-        setRoadWmsLink(response.data.baseUrl + data.roads);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const wardLink = () => {
-    getWardWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        console.log("ward", response.data.baseUrl + data.wards);
-
-        setWardWmsLink(response.data.baseUrl + data.wards);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  const sewerLink = () => {
-    getSewerWmsLink()
-      .then((response) => {
-        const { success, data, error } = response.data;
-
-        console.log("sewer", response.data.baseUrl + data.sewers);
-
-        setSewerWMSLink(response.data.baseUrl + data.sewers);
-        setSewerWMS(true);
-      })
-      .catch((err) => {
-        console.log("Error", err);
-        if (err?.response?.status === 500) {
-          Alert.alert(
-            "500",
-            "Something is wrong, please try again or at a later time."
-          );
-        }
-      });
-  };
-
-  useEffect(() => {
-    askLocationPermission(async () => {
-      if (Platform.constants.Release < 13) {
-        askStoragePermission();
-      }
-    });
-
-    getWmsLink();
-    roadLink();
-    wardLink();
-    sewerLink();
-    return () => dispatch(resetBuildingCoords());
-  }, []);
-
   const handlePressOnMarker = (index) => {
     const markerNum = parseInt(index) + 1;
 
@@ -457,9 +386,18 @@ const SewageMapScreen = ({ navigation }) => {
         showMapStyle={locationEnabled && permissionStatus && location}
         showRemoveMarker={false}
       />
-      {locationEnabled && permissionStatus && location ? (
+      {locationEnabled && permissionStatus && location && mapMounted ? (
         <>
           <MapComponent
+            initialLocation={location}
+            onRegionChangeComplete={handleRegionChangeComplete}
+            onMapLayout={() =>
+              mapRef.current?.setMapBoundaries?.(
+                MAP_SERVICE_BOUNDS.northEast,
+                MAP_SERVICE_BOUNDS.southWest,
+              )
+            }
+            mapRef={mapRef}
             handleMarkerPress={() => {
               console.log("Feature currently disabled: handleMarkerPress");
             }}
@@ -550,38 +488,12 @@ const SewageMapScreen = ({ navigation }) => {
             fillColor="rgba(45,87,250,0.07)"
           />
         )} */}
-            {showWmsLink && (
-              <WMSTile
-                urlTemplate={wmslinks}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
-            {roadWms && (
-              <WMSTile
-                urlTemplate={roadWmsLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
-            {wardWms && (
-              <WMSTile
-                urlTemplate={wardWmsLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
-            {sewerWMS && (
-              <WMSTile
-                urlTemplate={sewerWMSLink}
-                zIndex={1}
-                opacity={0.5}
-                tileSize={512}
-              />
-            )}
+            <WmsLayers
+              debugLabel="sewer"
+              wmsUrls={wmsUrls}
+              eligibleLayers={stagedLayers}
+              layerVisibility={layerVisibility}
+            />
           </MapComponent>
 
           <MapInfoButton onPress={() => setIsSaveModalVisible(true)} />
@@ -595,14 +507,15 @@ const SewageMapScreen = ({ navigation }) => {
           <SewerWMSView
             visible={showWmsDialog}
             onDismiss={() => setShowWmsDialog(false)}
-            onWmsPress={() => setShowWmsLink(!showWmsLink)}
-            onRoadWmsPress={() => setRoadWms(!roadWms)}
-            onWardWmsPress={() => setWardWms(!wardWms)}
+            onWmsPress={() => toggleLayer("building", showWmsLink, setShowWmsLink)}
+            onRoadWmsPress={() => toggleLayer("road", roadWms, setRoadWms)}
+            onWardWmsPress={() => toggleLayer("ward", wardWms, setWardWms)}
             isWmsOn={showWmsLink}
             isRoadWmsOn={roadWms}
             isWardWmsOn={wardWms}
             isSewerWmsOn={sewerWMS}
-            onSewerWMSPress={() => setSewerWMS(!sewerWMS)}
+            onSewerWMSPress={() => toggleLayer("sewer", sewerWMS, setSewerWMS)}
+            currentZoom={zoom}
           />
 
           <MapInfoModal

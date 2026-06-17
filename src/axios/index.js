@@ -12,6 +12,12 @@ import { ROUTES } from "../core/constants/routes";
 import { resetToken } from "../store/slices/auth.slice";
 let headers = { "Content-Type": "application/json" };
 
+function shouldLogAxios(configOrResponse) {
+  const url =
+    configOrResponse?.url || configOrResponse?.config?.url || "";
+  return !url.includes("form-metadata");
+}
+
 const client = axios.create({
   baseURL: `${BASE_URL_ENV}/api/`,
   headers,
@@ -26,7 +32,9 @@ client.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-      AxiosLogger.requestLogger(config);
+      if (shouldLogAxios(config)) {
+        AxiosLogger.requestLogger(config);
+      }
       config.timeout = 13000;
       return config;
     } catch (error) {
@@ -40,7 +48,9 @@ client.interceptors.request.use(
 client.interceptors.response.use(
   (response) =>
     new Promise((resolve, reject) => {
-      AxiosLogger.responseLogger(response);
+      if (shouldLogAxios(response)) {
+        AxiosLogger.responseLogger(response);
+      }
       resolve(response);
     }),
 

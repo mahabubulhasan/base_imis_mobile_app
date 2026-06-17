@@ -87,6 +87,7 @@ const RootStack = ({ navigation }) => {
         <Screen
           options={{
             headerShown: false,
+            unmountOnBlur: true,
           }}
           // options={{
           //   title: 'Building Map',
