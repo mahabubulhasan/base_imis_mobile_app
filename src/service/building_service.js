@@ -40,6 +40,7 @@ const BASE_FIELD_KEYS = [
   'owner_name',
   'owner_gender',
   'owner_contact',
+  'owner_nid',
   'ward',
   'road_code',
   'house_number',

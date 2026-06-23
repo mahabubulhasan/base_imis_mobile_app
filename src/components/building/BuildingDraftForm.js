@@ -85,9 +85,9 @@ const BuildingDraftForm = ({
 
   const genderOptions = useMemo(
     () => [
-      {label: getLabel('Male'), value: '0'},
-      {label: getLabel('Female'), value: '1'},
-      {label: getLabel('Other'), value: '2'},
+      {label: getLabel('Male'), value: 'Male'},
+      {label: getLabel('Female'), value: 'Female'},
+      {label: getLabel('Others'), value: 'Others'},
     ],
     [contentsLabel],
   );
@@ -311,6 +311,7 @@ const BuildingDraftForm = ({
               onChangeText: text =>
                 setFieldValue('owner_contact', numericOnly(text).slice(0, 11)),
             })}
+            {renderInput('owner_nid', getLabel('Owner NID'))}
             {renderSelection(
               'main_building',
               reqLabel('Main Building'),

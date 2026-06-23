@@ -7,6 +7,7 @@ export const BUILDING_FORM_INITIAL_VALUES = {
   owner_name: "",
   owner_gender: "",
   owner_contact: "",
+  owner_nid: "",
   ward: "",
   road_code: "",
   structure_type_id: "",
