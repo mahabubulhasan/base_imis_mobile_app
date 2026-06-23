@@ -83,6 +83,15 @@ const BuildingDraftForm = ({
 
   const yesNoOptions = useMemo(() => getYesNoOptions(getLabel), [contentsLabel]);
 
+  const genderOptions = useMemo(
+    () => [
+      {label: getLabel('Male'), value: '0'},
+      {label: getLabel('Female'), value: '1'},
+      {label: getLabel('Other'), value: '2'},
+    ],
+    [contentsLabel],
+  );
+
   const visible = useMemo(
     () => getVisibleConditionalFields(values),
     [values],
@@ -289,6 +298,19 @@ const BuildingDraftForm = ({
                 build_contain) slot into their logical WMS positions. */}
             <Text variant="titleMedium">{getLabel('Building Information')}</Text>
             {renderInput('temp_building_code', reqLabel('Temp Building Code'))}
+            {renderInput('owner_name', reqLabel('Owner Name'))}
+            {renderSelection(
+              'owner_gender',
+              reqLabel('Owner Gender'),
+              genderOptions,
+              getLabel('Owner Gender'),
+              false,
+            )}
+            {renderInput('owner_contact', reqLabel('Owner Contact No.'), {
+              keyboardType: 'numeric',
+              onChangeText: text =>
+                setFieldValue('owner_contact', numericOnly(text).slice(0, 11)),
+            })}
             {renderSelection(
               'main_building',
               reqLabel('Main Building'),
@@ -328,11 +350,6 @@ const BuildingDraftForm = ({
             {renderInput('floor_count', reqLabel('Floor Count'), {
               keyboardType: 'decimal-pad',
             })}
-            {renderInput('population_served', reqLabel('Population Served'), {
-              keyboardType: 'numeric',
-              onChangeText: text =>
-                setFieldValue('population_served', numericOnly(text)),
-            })}
             {renderSelection(
               'functional_use_id',
               reqLabel('Functional Use'),
@@ -352,6 +369,11 @@ const BuildingDraftForm = ({
               keyboardType: 'numeric',
               onChangeText: text =>
                 setFieldValue('household_served', numericOnly(text)),
+            })}
+            {renderInput('population_served', reqLabel('Population Served'), {
+              keyboardType: 'numeric',
+              onChangeText: text =>
+                setFieldValue('population_served', numericOnly(text)),
             })}
 
             <Text variant="titleMedium">{getLabel('LIC Information')}</Text>

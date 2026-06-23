@@ -21,10 +21,12 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
       ? String(item.volume_of_sludge)
       : "N/A";
 
-  const [date, setDate] = useState(null);
+  const [date, setDate] = useState(new Date());
   const [noOfTrips, setNoOfTrips] = useState("");
-  const [entryTime, setEntryTime] = useState(null);
-  const [exitTime, setExitTime] = useState(null);
+  const [entryTime, setEntryTime] = useState(new Date());
+  const [exitTime, setExitTime] = useState(
+    dayjs().add(10, "minute").toDate()
+  );
 
   const [dateOpen, setDateOpen] = useState(false);
   const [entryTimeOpen, setEntryTimeOpen] = useState(false);
@@ -275,7 +277,7 @@ const SludgeCollectionScreen = ({ route, navigation }) => {
         onConfirm={(selectedTime) => {
           setEntryTimeOpen(false);
           setEntryTime(selectedTime);
-          setExitTime(dayjs(selectedTime).add(30, "minute").toDate());
+          setExitTime(dayjs(selectedTime).add(10, "minute").toDate());
           if (errors.entryTime) {
             setErrors((prev) => ({ ...prev, entryTime: undefined }));
           }

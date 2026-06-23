@@ -4,10 +4,13 @@ export const BUILDING_FORM_INITIAL_VALUES = {
   temp_building_code: "",
   tax_code: "",
   collected_date: dayjs().format("YYYY-MM-DD"),
+  owner_name: "",
+  owner_gender: "",
+  owner_contact: "",
   ward: "",
   road_code: "",
   structure_type_id: "",
-  construction_year: dayjs().format("YYYY-MM-DD"),
+  construction_year: "",
   floor_count: "",
   functional_use_id: "",
   use_category_id: "",
@@ -37,6 +40,9 @@ const REQUIRED_KEYS = [
   "temp_building_code",
   "tax_code",
   "collected_date",
+  "owner_name",
+  "owner_gender",
+  "owner_contact",
   "ward",
   "road_code",
   "structure_type_id",
@@ -83,6 +89,13 @@ export const validateBuildingDraft = (values) => {
       errors.construction_year = "Construction year must be YYYY-MM-DD.";
     } else if (parsed.isAfter(dayjs(), "day")) {
       errors.construction_year = "Construction year can not be in the future.";
+    }
+  }
+
+  if (!isEmpty(values.owner_contact)) {
+    const contact = String(values.owner_contact).replace(/[^0-9]/g, "");
+    if (contact.length < 10 || contact.length > 11) {
+      errors.owner_contact = "Owner contact must be 10-11 digits.";
     }
   }
 

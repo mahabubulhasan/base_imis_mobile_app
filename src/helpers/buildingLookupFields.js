@@ -31,14 +31,15 @@ export const LOOKUP_PAGE_SIZE = 15;
 export const BUILDING_LOOKUP_FIELDS = {
   road_code: {
     search: searchRoads,
-    context: v => ({ward: v.ward}),
-    enabled: v => !!v.ward,
+    // Roads are no longer filtered by ward — search/prefetch the full list.
+    context: () => ({}),
+    enabled: () => true,
     serverMinChars: 1,
     prefetch: true,
     allowRawEntry: true,
     resolveBy: "q",
     limit: LOOKUP_PAGE_SIZE,
-    cacheKey: ctx => `road:${ctx.ward}`,
+    cacheKey: () => "road",
   },
   sewer_code: {
     search: searchSewers,
@@ -108,7 +109,6 @@ export const BUILDING_LOOKUP_FIELDS = {
 
 // Fields whose value must be cleared when an upstream context field changes.
 export const LOOKUP_CASCADE = {
-  ward: ["road_code", "sewer_code", "drain_code", "watersupply_pipe_code"],
   road_code: ["sewer_code", "drain_code", "watersupply_pipe_code"],
 };
 
