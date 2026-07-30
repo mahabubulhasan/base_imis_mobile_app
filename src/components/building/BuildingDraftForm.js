@@ -337,8 +337,8 @@ const BuildingDraftForm = ({
               )}
             {renderSelection('ward', reqLabel('Ward'), dropdowns.ward, getLabel('Ward'))}
             {renderRemote('road_code', reqLabel('Road Code'), getLabel('Road Code'))}
-            {renderInput('house_number', getLabel('House Number'))}
-            {renderInput('house_locality', getLabel('House Locality / Address'))}
+            {renderInput('house_number', getLabel('Holding Id'))}
+            {renderInput('house_locality', getLabel('Address'))}
             {renderInput('tax_code', reqLabel('Tax Code'), {
               placeholder: 'ww-rrr-hhhh-xx',
               keyboardType: 'numeric',

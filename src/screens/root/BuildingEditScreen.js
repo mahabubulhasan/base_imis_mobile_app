@@ -609,7 +609,7 @@ const BuildingEditScreen = ({navigation, route}) => {
         {!!values.house_number && (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>
-              {getLabel("House Number")}: {values.house_number}
+              {getLabel("Holding Id")}: {values.house_number}
             </Text>
           </View>
         )}
@@ -696,7 +696,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           </View>
           <View onLayout={registerField("house_number")}>
             <TextInput
-              label={getLabel("House Number")}
+              label={getLabel("Holding Id")}
               value={values.house_number}
               error={!!fieldErrors.house_number}
               onChangeText={t => setFieldValue("house_number", t)}
@@ -705,7 +705,7 @@ const BuildingEditScreen = ({navigation, route}) => {
           </View>
           <View onLayout={registerField("house_locality")}>
             <TextInput
-              label={getLabel("House Locality / Address")}
+              label={getLabel("Address")}
               value={values.house_locality}
               error={!!fieldErrors.house_locality}
               onChangeText={t => setFieldValue("house_locality", t)}
