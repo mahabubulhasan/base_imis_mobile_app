@@ -9,6 +9,7 @@ import {ROUTES} from '../../core/constants/routes';
 import {askStoragePermission} from '../../helpers/permissions';
 import {getBuildingFeatureInfoByCoordinate} from '../../service/building_service';
 import {fetchWmsUrlsForScreen} from '../../store/thunks/fetchWmsUrlsForScreen';
+import {getCurrentLocation} from '../../helpers/location';
 
 const EmptyingBuildingPickerScreen = ({navigation, route}) => {
   const dispatch = useDispatch();
@@ -16,6 +17,7 @@ const EmptyingBuildingPickerScreen = ({navigation, route}) => {
   const {wmsUrls} = useSelector(state => state.map);
   const selectedBuildingId = route?.params?.selectedBuildingId;
   const [selectedId, setSelectedId] = useState(selectedBuildingId || '');
+  const [location, setLocation] = useState(null);
   const [mapMounted, setMapMounted] = useState(false);
   const featureInfoBusyRef = React.useRef(false);
 
@@ -38,6 +40,12 @@ const EmptyingBuildingPickerScreen = ({navigation, route}) => {
     }
     dispatch(fetchWmsUrlsForScreen('picker'));
   }, [dispatch]);
+
+  useEffect(() => {
+    getCurrentLocation(false).then(pos => {
+      if (pos?.coords) setLocation(pos.coords);
+    });
+  }, []);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -128,7 +136,8 @@ const EmptyingBuildingPickerScreen = ({navigation, route}) => {
       {mapMounted ? (
         <MapComponent
           handleMarkerPress={handleMapPress}
-          onRegionChangeComplete={handleRegionChangeComplete}>
+          onRegionChangeComplete={handleRegionChangeComplete}
+          initialLocation={location}>
           <WmsLayers
             debugLabel="picker"
             wmsUrls={wmsUrls}
