@@ -444,10 +444,11 @@ const BuildingMapScreen = ({navigation}) => {
 
     }
 
+    const {bn_name, old_code, road_ext, ...roadProps} = feature?.properties ?? {};
     setFeatureInfo({
       visible: true,
       title: getLabel('Road Information'),
-      rows: buildGenericFeatureRows(feature?.properties, getLabel),
+      rows: buildGenericFeatureRows(roadProps, getLabel),
       editTarget: null,
     });
 
