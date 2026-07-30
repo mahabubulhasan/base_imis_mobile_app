@@ -33,7 +33,7 @@ const useEmptying = (application) => {
     emptier1: "",
     emptier2: "",
     start_time: new Date(),
-    end_time: new Date(new Date().getTime() + 60000),
+    end_time: new Date(new Date().getTime() + 10 * 60 * 1000),
     no_of_trips: "",
     total_cost: "",
     application_id: application?.id,
