@@ -96,6 +96,7 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
     longitude,
     building_id,
     containment_id,
+    receipt_number,
   } = values;
 
   useEffect(() => {
@@ -433,8 +434,8 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
 
           <TextInput
             label={
-              contentsLabel?.[EmptyingFieldsEnum.Sludge] ||
-              EmptyingFieldsEnum.Sludge
+              (contentsLabel?.[EmptyingFieldsEnum.Sludge] ||
+                EmptyingFieldsEnum.Sludge)
             }
             value={volume_of_sludge.toString()}
             onChangeText={handleChange("volume_of_sludge")}
@@ -660,6 +661,15 @@ const EmptyingSubmissionScreen = ({ route, navigation }) => {
           {errors.total_cost && (
             <HelperText type="error">{errors.total_cost}</HelperText>
           )}
+
+          <TextInput
+            label={
+              contentsLabel?.[EmptyingFieldsEnum.ReceiptNum] ||
+              EmptyingFieldsEnum.ReceiptNum
+            }
+            value={receipt_number}
+            onChangeText={handleChange("receipt_number")}
+          />
 
           <View
             style={[

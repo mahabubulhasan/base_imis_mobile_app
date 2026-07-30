@@ -35,7 +35,7 @@ export enum EmptyingFieldsEnum {
   SelectReceiverGender = "Select Service Receiver Gender",
   ServiceReciverPhone = "Service Receiver Contact Number",
   EmptyingReason = "Reason For Emptying",
-  Sludge = "Sludge Volume (m3)",
+  Sludge = "Sludge Volume (L)",
   DistanceToWell = "Distance Closent To Well (m)",
   DesludginggVehicleNumber = "Select A Desludging Vehicle Number Plate",
   SelectDisposalPlace = "Select A Disposal Place",
