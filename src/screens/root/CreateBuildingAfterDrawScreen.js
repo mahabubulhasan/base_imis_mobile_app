@@ -13,7 +13,8 @@ import {addBuildingsData, resetBuildingCoords} from '../../store/slices/map.slic
 const CreateBuildingAfterDrawScreen = ({navigation}) => {
   const dispatch = useDispatch();
   const {contentsLabel} = useSelector(state => state.auth);
-  const {buildingCoords} = useSelector(state => state.map);
+  const {buildingCoords, nextBuildingSeq} = useSelector(state => state.map);
+  const autoTempCode = `TB-${String(nextBuildingSeq).padStart(4, '0')}`;
   const [saving, setSaving] = useState(false);
   const polygonCoordsRef = useRef(
     Array.isArray(buildingCoords) && buildingCoords.length >= 3
@@ -95,6 +96,7 @@ const CreateBuildingAfterDrawScreen = ({navigation}) => {
         onSave={handleSave}
         saveLabel={getLabel('Save Locally')}
         saving={saving}
+        defaultTempCode={autoTempCode}
       />
     </View>
   );

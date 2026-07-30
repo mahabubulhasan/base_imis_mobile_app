@@ -15,6 +15,7 @@ const mapSlice = createSlice({
   initialState: {
     buildingCoords: [],
     buildingsData: [],
+    nextBuildingSeq: 1,
     buildingFormMetadata: null,
     buildingFormMetadataStatus: 'idle',
     buildingFormMetadataError: null,
@@ -146,6 +147,10 @@ const mapSlice = createSlice({
         ...payload,
         created_date,
       };
+      if (!data.temp_building_code) {
+        data.temp_building_code = `TB-${String(state.nextBuildingSeq).padStart(4, '0')}`;
+      }
+      state.nextBuildingSeq += 1;
       state.buildingsData.push(data);
     },
 

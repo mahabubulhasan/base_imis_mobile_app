@@ -38,7 +38,6 @@ export const BUILDING_FORM_INITIAL_VALUES = {
 };
 
 const REQUIRED_KEYS = [
-  "temp_building_code",
   "tax_code",
   "collected_date",
   "owner_name",
