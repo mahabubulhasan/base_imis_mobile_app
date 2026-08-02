@@ -42,6 +42,7 @@ const mapPersistConfig = {
     'buildingFormMetadataStatus',
     'buildingFormMetadataFetchedAt',
     'mapType',
+    'nextBuildingSeq',
   ],
 };
 

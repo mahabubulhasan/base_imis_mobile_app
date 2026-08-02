@@ -45,6 +45,7 @@ const numericOnly = value => String(value ?? '').replace(/[^0-9]/g, '');
 
 const BuildingDraftForm = ({
   initialValues = BUILDING_FORM_INITIAL_VALUES,
+  defaultTempCode,
   initialHouseImage = null,
   onSave,
   saveLabel = 'Save Locally',
@@ -63,14 +64,23 @@ const BuildingDraftForm = ({
   const getLabel = key => contentsLabel?.[key] || key;
   const reqLabel = key => `${getLabel(key)} *`;
 
-  const [values, setValues] = useState(initialValues);
+  const effectiveInitialValues = useMemo(
+    () =>
+      defaultTempCode
+        ? {...initialValues, temp_building_code: defaultTempCode}
+        : initialValues,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [values, setValues] = useState(effectiveInitialValues);
   const [errors, setErrors] = useState({});
   const [houseImageFile, setHouseImageFile] = useState(initialHouseImage);
   const [activeDateField, setActiveDateField] = useState(null);
 
   useEffect(() => {
-    setValues(initialValues);
-  }, [initialValues]);
+    setValues(effectiveInitialValues);
+  }, [effectiveInitialValues]);
 
   useEffect(() => {
     setHouseImageFile(initialHouseImage);
@@ -297,7 +307,7 @@ const BuildingDraftForm = ({
                 Create-only fields (temp_building_code, collected_date,
                 build_contain) slot into their logical WMS positions. */}
             <Text variant="titleMedium">{getLabel('Building Information')}</Text>
-            {renderInput('temp_building_code', reqLabel('Temp Building Code'))}
+            {renderInput('temp_building_code', getLabel('Temp Building Code'), {editable: false})}
             {renderInput('owner_name', reqLabel('Owner Name'))}
             {renderSelection(
               'owner_gender',
@@ -327,8 +337,8 @@ const BuildingDraftForm = ({
               )}
             {renderSelection('ward', reqLabel('Ward'), dropdowns.ward, getLabel('Ward'))}
             {renderRemote('road_code', reqLabel('Road Code'), getLabel('Road Code'))}
-            {renderInput('house_number', getLabel('House Number'))}
-            {renderInput('house_locality', getLabel('House Locality / Address'))}
+            {renderInput('house_number', getLabel('Holding Id'))}
+            {renderInput('house_locality', getLabel('Address'))}
             {renderInput('tax_code', reqLabel('Tax Code'), {
               placeholder: 'ww-rrr-hhhh-xx',
               keyboardType: 'numeric',

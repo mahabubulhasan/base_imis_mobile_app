@@ -13,11 +13,11 @@ export const SCREEN_WMS_CONFIG = {
 };
 
 export const ZOOM_LAYER_RULES = {
-  road: {minZ: 13, maxZ: 22},
-  ward: {minZ: 13, maxZ: 17},
-  building: {minZ: 13, maxZ: 22},
-  containment: {minZ: 16, maxZ: 22},
-  sewer: {minZ: 16, maxZ: 22},
+  road: {minZ: 9, maxZ: 22},
+  ward: {minZ: 9, maxZ: 22},
+  building: {minZ: 9, maxZ: 22},
+  containment: {minZ: 13, maxZ: 22},
+  sewer: {minZ: 13, maxZ: 22},
 };
 
 export const MAP_SERVICE_BOUNDS = {

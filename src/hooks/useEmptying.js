@@ -33,7 +33,7 @@ const useEmptying = (application) => {
     emptier1: "",
     emptier2: "",
     start_time: new Date(),
-    end_time: new Date(new Date().getTime() + 60000),
+    end_time: new Date(new Date().getTime() + 10 * 60 * 1000),
     no_of_trips: "",
     total_cost: "",
     application_id: application?.id,
@@ -51,6 +51,7 @@ const useEmptying = (application) => {
     longitude: "",
     building_id: "",
     containment_id: "",
+    receipt_number: "",
   };
 
   const [drivers, setDrivers] = useState([]);
@@ -312,6 +313,7 @@ const useEmptying = (application) => {
       }
 
       // Validate volume_of_sludge against application.size
+      // User enters liters; containment_size from server is in m³ → multiply by 1000
       if (application?.containment_size) {
         if (application.containment_size.startsWith("{")) {
           // Handle multiple sizes
@@ -319,30 +321,16 @@ const useEmptying = (application) => {
             .replace(/[{}]/g, "")
             .split(",")
             .map(parseFloat);
-          const totalSize = sizes.reduce((acc, size) => acc + size, 0); // Sum of all sizes
+          const totalSizeL = sizes.reduce((acc, size) => acc + size, 0) * 1000;
 
-          if (parseFloat(values.volume_of_sludge) > totalSize) {
-            errors.volume_of_sludge = contentsLabel?.[
-              "Volume of sludge cannot be more than 1.37."
-            ]
-              ? contentsLabel[
-                  "Volume of sludge cannot be more than 1.37."
-                ].replace("1.37", totalSize)
-              : `Volume of sludge cannot be more than ${totalSize}.`;
+          if (parseFloat(values.volume_of_sludge) > totalSizeL) {
+            errors.volume_of_sludge = `Volume of sludge cannot be more than ${totalSizeL} L.`;
           }
         } else {
           // Handle single size
-          if (
-            parseFloat(values.volume_of_sludge) >
-            parseFloat(application.containment_size)
-          ) {
-            errors.volume_of_sludge = contentsLabel?.[
-              "Volume of sludge cannot be more than 1.37."
-            ]
-              ? contentsLabel[
-                  "Volume of sludge cannot be more than 1.37."
-                ].replace("1.37", application.containment_size)
-              : `Volume of sludge cannot be more than ${application.containment_size}.`;
+          const limitL = parseFloat(application.containment_size) * 1000;
+          if (parseFloat(values.volume_of_sludge) > limitL) {
+            errors.volume_of_sludge = `Volume of sludge cannot be more than ${limitL} L.`;
           }
         }
       }
@@ -422,7 +410,7 @@ const useEmptying = (application) => {
       console.log("Valuess---!!!", values);
       let formdata = new FormData();
 
-      formdata.append("volume_of_sludge", values.volume_of_sludge);
+      formdata.append("volume_of_sludge", parseFloat(values.volume_of_sludge) / 1000);
       // formdata.append('volume_of_sludge', 4);
 
       formdata.append("desludging_vehicle_id", values.desludging_vehicle_id);
@@ -464,6 +452,7 @@ const useEmptying = (application) => {
         values.service_receiver_gender
       );
       formdata.append("service_receiver_name", values.service_receiver_name);
+      formdata.append("receipt_number", values.receipt_number);
       formdata.append("comments", values.comments);
       formdata.append("date", dayjs(values.date).format("YYYY-MM-DD"));
       // formdata.append("distance_closest_well", values.distance_closest_well);

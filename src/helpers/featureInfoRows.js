@@ -23,8 +23,14 @@ export const humanizeKey = key =>
 // getLabel returns the key itself when no CMS label exists, so fall back to a
 // humanized version of the key in that case.
 const makeLabel = (getLabel, key) => {
+  if (FIELD_LABEL_OVERRIDES[key]) return FIELD_LABEL_OVERRIDES[key];
   const fromCms = getLabel?.(key);
   return fromCms && fromCms !== key ? fromCms : humanizeKey(key);
+};
+
+const FIELD_LABEL_OVERRIDES = {
+  house_number: 'Holding ID',
+  house_locality: 'Address',
 };
 
 // Geometry / bookkeeping keys that should never be displayed on any layer.
